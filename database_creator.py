@@ -106,62 +106,55 @@ def send_to_database():
         messagebox.showerror("No Data", "No valid JSON data to send to the database.")
         return
 
-    # Create a new database session
     engine = create_engine(f'sqlite:///{database_path}')
-    Base.metadata.create_all(engine)
+    
+    # Drop existing tables before creating new ones
+    Base.metadata.drop_all(engine)  # This will drop all tables defined in Base
+    Base.metadata.create_all(engine)  # This will create the new tables
     Session = sessionmaker(bind=engine)
     session = Session()
 
     try:
         for record in cleaned_data:
-            if 'id' in record and record['id']:
-                artifact_id = record['id']
+            if 'id' in record and record['id'] is not None:
+                root_id = record['id']  # Map JSON 'id' to 'root_id'
 
-                # Check if the artifact already exists
-                existing_identification = session.query(Identification).filter_by(id=artifact_id).first()
+                existing_identification = session.query(Identification).filter_by(root_id=root_id).first()
 
-                if existing_identification is None:  # If it does not exist, create a new one
+                if existing_identification is None:
                     identification = Identification(
-                        id=artifact_id,
+                        root_id=root_id,  # Use root_id instead of id
                         designation=record.get('designation', None),
-                        excavation_number=record.get('excavation_no', None),
-                        museum_number=record.get('museum_no', None)
+                        excavation_no=record.get('excavation_no', None),
+                        museum_no=record.get('museum_no', None),
                     )
                     session.add(identification)
 
-                # Handle inscriptions if present
-                if 'inscription' in record and record['inscription']:
-                    inscription_data = record['inscription']
+            if 'inscription' in record and record['inscription']:
+                inscription_data = record['inscription']
+                if isinstance(inscription_data, dict):
+                    inscription_id = inscription_data.get('id', None)
+                    existing_inscription = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
 
-                    # Ensure the inscription data is valid
-                    if isinstance(inscription_data, dict):
-                        inscription_id = inscription_data.get('id', None)
-
-                        # Check if the inscription already exists
-                        existing_inscription = session.query(Inscription).filter_by(id=inscription_id).first()
-
-                        if existing_inscription is None:
-                            # If it doesn't exist, create a new inscription
-                            inscription = Inscription(
-                                id=inscription_id,
-                                artifact_id=artifact_id,  # Linking inscription to the same artifact
-                                atf=inscription_data.get('atf', None)
-                            )
-                            session.add(inscription)
-                        else:
-                            # Update the existing inscription with any new data
-                            existing_inscription.atf = inscription_data.get('atf', existing_inscription.atf)
+                    if existing_inscription is None:
+                        inscription = Inscription(
+                            inscription_id=inscription_id,
+                            artifact_id=root_id,  # Link to the new root_id
+                            atf=inscription_data.get('atf', None)
+                        )
+                        session.add(inscription)
+                    else:
+                        existing_inscription.atf = inscription_data.get('atf', existing_inscription.atf)
 
         session.commit()
         messagebox.showinfo("Success", "Data successfully inserted into the SQLite database.")
-    
+
     except Exception as e:
-        session.rollback()  # Rollback in case of an error
+        session.rollback()
         messagebox.showerror("Error", f"An error occurred: {e}")
-    
+
     finally:
         session.close()
-
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
