@@ -3,7 +3,24 @@ from tkinter import filedialog, messagebox, Listbox  # Specific components from 
 import json  # Import json for working with JSON files
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
 from sqlalchemy.orm import sessionmaker
-from models import Base, Identification, Inscription  # Import models from the models.py file
+# Import all necessary models from the models.py file
+from models import (
+    Base, 
+    Identification, 
+    Inscription, 
+    Publication, 
+    ArtifactPublication, 
+    Material, 
+    ArtifactMaterial, 
+    Language, 
+    ArtifactLanguage, 
+    Genre, 
+    ArtifactGenre, 
+    ExternalResource, 
+    ArtifactExternalResource, 
+    Collection, 
+    ArtifactCollection
+)
 
 # Global variable to store the database path and cleaned JSON data
 database_path = None
@@ -119,17 +136,27 @@ def send_to_database():
             if 'id' in record and record['id'] is not None:
                 root_id = record['id']  # Map JSON 'id' to 'root_id'
 
+                # Check if Identification (artifact) exists
                 existing_identification = session.query(Identification).filter_by(root_id=root_id).first()
 
                 if existing_identification is None:
                     identification = Identification(
-                        root_id=root_id,  # Use root_id instead of id
+                        root_id=root_id, 
+                        composite_no=record.get('composite_no', None),
                         designation=record.get('designation', None),
                         excavation_no=record.get('excavation_no', None),
                         museum_no=record.get('museum_no', None),
+                        findspot_comments=record.get('findspot_comments', None),
+                        findspot_square=record.get('findspot_square', None),
+                        thickness=record.get('thickness', None),
+                        height=record.get('height', None),
+                        width=record.get('width', None),
                     )
                     session.add(identification)
+                else:
+                    identification = existing_identification
 
+            # Handle Inscription
             if 'inscription' in record and record['inscription']:
                 inscription_data = record['inscription']
                 if isinstance(inscription_data, dict):
@@ -139,12 +166,152 @@ def send_to_database():
                     if existing_inscription is None:
                         inscription = Inscription(
                             inscription_id=inscription_id,
-                            artifact_id=root_id,  # Link to the new root_id
+                            artifact_id=identification.root_id,  # Link to the root_id
                             atf=inscription_data.get('atf', None)
                         )
                         session.add(inscription)
                     else:
                         existing_inscription.atf = inscription_data.get('atf', existing_inscription.atf)
+
+            # Handle Publications
+            if 'publications' in record and isinstance(record['publications'], list):
+                for pub in record['publications']:
+                    publication_data = pub.get('publication', {})
+                    existing_pub = session.query(Publication).filter_by(id=publication_data.get('id')).first()
+
+                    if existing_pub is None:
+                        publication = Publication(
+                            id=publication_data.get('id', None),
+                            designation=publication_data.get('designation', None),
+                            bibtexkey=publication_data.get('bibtexkey', None),
+                            year=publication_data.get('year', None),
+                            address=publication_data.get('address', None),
+                            number=publication_data.get('number', None),
+                            publisher=publication_data.get('publisher', None),
+                            title=publication_data.get('title', None),
+                            series=publication_data.get('series', None),
+                        )
+                        session.add(publication)
+                    else:
+                        publication = existing_pub
+
+                    artifact_publication = ArtifactPublication(
+                        artifact_id=identification.root_id,
+                        publication_id=publication.id,
+                        exact_reference=pub.get('exact_reference', None)
+                    )
+                    session.add(artifact_publication)
+
+            # Handle Materials
+            if 'materials' in record and isinstance(record['materials'], list):
+                for mat in record['materials']:
+                    material_data = mat.get('material', {})
+                    existing_material = session.query(Material).filter_by(id=material_data.get('id')).first()
+
+                    if existing_material is None:
+                        material = Material(
+                            id=material_data.get('id', None),
+                            material=material_data.get('material', None)
+                        )
+                        session.add(material)
+                    else:
+                        material = existing_material
+
+                    artifact_material = ArtifactMaterial(
+                        artifact_id=identification.root_id,
+                        material_id=material.id
+                    )
+                    session.add(artifact_material)
+
+            # Handle Languages
+            if 'languages' in record and isinstance(record['languages'], list):
+                for lang in record['languages']:
+                    language_data = lang.get('language', {})
+                    existing_language = session.query(Language).filter_by(id=language_data.get('id')).first()
+
+                    if existing_language is None:
+                        language = Language(
+                            id=language_data.get('id', None),
+                            language=language_data.get('language', None)
+                        )
+                        session.add(language)
+                    else:
+                        language = existing_language
+
+                    artifact_language = ArtifactLanguage(
+                        artifact_id=identification.root_id,
+                        language_id=language.id
+                    )
+                    session.add(artifact_language)
+
+            # Handle Genres
+            if 'genres' in record and isinstance(record['genres'], list):
+                for gen in record['genres']:
+                    genre_data = gen.get('genre', {})
+                    existing_genre = session.query(Genre).filter_by(id=genre_data.get('id')).first()
+
+                    if existing_genre is None:
+                        genre = Genre(
+                            id=genre_data.get('id', None),
+                            genre=genre_data.get('genre', None)
+                        )
+                        session.add(genre)
+                    else:
+                        genre = existing_genre
+
+                    artifact_genre = ArtifactGenre(
+                        artifact_id=identification.root_id,
+                        genre_id=genre.id,
+                        comments=gen.get('comments', None)
+                    )
+                    session.add(artifact_genre)
+
+            # Handle External Resources
+            if 'external_resources' in record and isinstance(record['external_resources'], list):
+                for ext_res in record['external_resources']:
+                    ext_res_data = ext_res.get('external_resource', {})
+                    existing_ext_res = session.query(ExternalResource).filter_by(id=ext_res_data.get('id')).first()
+
+                    if existing_ext_res is None:
+                        external_resource = ExternalResource(
+                            id=ext_res_data.get('id', None),
+                            external_resource=ext_res_data.get('external_resource', None),
+                            base_url=ext_res_data.get('base_url', None),
+                            project_url=ext_res_data.get('project_url', None),
+                            abbrev=ext_res_data.get('abbrev', None)
+                        )
+                        session.add(external_resource)
+                    else:
+                        external_resource = existing_ext_res
+
+                    artifact_ext_res = ArtifactExternalResource(
+                        artifact_id=identification.root_id,
+                        external_resource_id=external_resource.id,
+                        external_resource_key=ext_res.get('external_resource_key', None)
+                    )
+                    session.add(artifact_ext_res)
+
+            # Handle Collections
+            if 'collections' in record and isinstance(record['collections'], list):
+                for coll in record['collections']:
+                    collection_data = coll.get('collection', {})
+                    existing_collection = session.query(Collection).filter_by(id=collection_data.get('id')).first()
+
+                    if existing_collection is None:
+                        collection = Collection(
+                            id=collection_data.get('id', None),
+                            collection=collection_data.get('collection', None),
+                            collection_url=collection_data.get('collection_url', None)
+                        )
+                        session.add(collection)
+                    else:
+                        collection = existing_collection
+
+                    artifact_collection = ArtifactCollection(
+                        artifact_id=identification.root_id,
+                        collection_id=collection.id
+                    )
+                    session.add(artifact_collection)
 
         session.commit()
         messagebox.showinfo("Success", "Data successfully inserted into the SQLite database.")
