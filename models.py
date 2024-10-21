@@ -35,7 +35,11 @@ class Inscription(Base):
     
     inscription_id = Column(Integer, primary_key=True)  # Primary key for inscriptions
     artifact_id = Column(Integer, ForeignKey('identification.root_id'), nullable=False)  # Foreign key to identification
-    atf = Column(Text, nullable=True)  # Inscription text
+    raw_atf = Column(Text, nullable=True)  # Inscription text
+    cleaned_transliteration = Column(Text, nullable=True)  # Cleaned transliteration of the inscription
+    existing_translation = Column(Text, nullable=True)  # Existing translation of the inscription
+    personal_translation = Column(Text, nullable=True) # Personal translation
+
 
     # Define relationship back to Identification
     identification = relationship("Identification", back_populates="inscriptions")

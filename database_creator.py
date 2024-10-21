@@ -1,8 +1,14 @@
-import tkinter as tk  # Import tkinter for GUI functionality
-from tkinter import filedialog, messagebox, Listbox  # Specific components from tkinter for file dialog and message boxes
+import tkinter as tk  # Import tkinter for GUI functionality such as dialog boxes and user input.
+from tkinter import filedialog, messagebox, Listbox # Specific components from tkinter for file dialog and message boxes
+# filedialog: For opening a file dialog window to select files.
+# messagebox: For displaying message boxes like error or success alerts.
+# Listbox: For displaying lists in the GUI.
 import json  # Import json for working with JSON files
+import re  # Import the regex library
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
+# create_engine: To create a connection to the SQLite database
 from sqlalchemy.orm import sessionmaker
+# To create database sessions for interacting with the database.
 # Import all necessary models from the models.py file
 from models import (
     Base, 
@@ -144,6 +150,7 @@ def send_to_database():
                         root_id=root_id, 
                         composite_no=record.get('composite_no', None),
                         designation=record.get('designation', None),
+                        artifact_type_comments=record.get('artifact_type_comments', None),
                         excavation_no=record.get('excavation_no', None),
                         museum_no=record.get('museum_no', None),
                         findspot_comments=record.get('findspot_comments', None),
@@ -155,6 +162,69 @@ def send_to_database():
                     session.add(identification)
                 else:
                     identification = existing_identification
+            def replace_characters(text):
+                replacements = {
+                    "sz": "š",
+                    "s,": "ṣ",
+                    "t,": "ṭ",
+                    "h": "ḫ"
+                }
+                # Replace characters based on the replacements dictionary
+                for old, new in replacements.items():
+                    text = text.replace(old, new)
+
+                # Replace text between underscores with uppercase
+                text = re.sub(r'_(.*?)_', lambda m: m.group(1).upper(), text)
+
+                return text
+            def extract_cleaned_transliteration(raw_atf):
+                if not raw_atf:
+                    return None
+
+                cleaned_lines = []
+                raw_atf_lines = raw_atf.splitlines()
+
+                for line in raw_atf_lines:
+                    stripped_line = line.strip()
+
+                    # Skip lines that start with #tr.
+                    if stripped_line.startswith("#tr.") or stripped_line.startswith("\u0026P") or stripped_line.startswith("#"):
+                        continue
+
+                    # Apply the character replacements and uppercase for underscores
+                    cleaned_line = replace_characters(stripped_line)
+                    cleaned_lines.append(cleaned_line)
+
+                # Join the cleaned lines into a single transliteration text
+                return "\n".join(cleaned_lines) if cleaned_lines else None
+            
+            def extract_existing_translation(raw_atf):
+                if not raw_atf:
+                    return None
+
+                translation_lines = []
+                raw_atf_lines = raw_atf.splitlines()
+                nearest_prefix = None
+
+                for i, line in enumerate(raw_atf_lines):
+                    stripped_line = line.strip()
+
+                    # Check if the line is a translation line (starts with #tr. but NOT #tr.ts:)
+                    if stripped_line.startswith("#tr.") and not stripped_line.startswith("#tr.ts:"):
+                        # Find the nearest line above that doesn't start with #tr or #
+                        for j in range(i - 1, -1, -1):  # Traverse upwards from the current line
+                            if not raw_atf_lines[j].strip().startswith("#"):
+                                nearest_prefix = re.split(r'\s+', raw_atf_lines[j].strip())[0]  # Get the first "word" (number usually)
+                                break
+
+                        # If a prefix is found, add the translation line with the prefix
+                        if nearest_prefix:
+                            # Remove "#tr.*:" and add the nearest prefix
+                            cleaned_translation = stripped_line.split(":", 1)[1].strip()  # Get the part after "#tr.*:"
+                            translation_lines.append(f"{nearest_prefix} {cleaned_translation}")
+
+                # Return None if no translation lines were found
+                return "\n".join(translation_lines) if translation_lines else None
 
             # Handle Inscription
             if 'inscription' in record and record['inscription']:
@@ -164,14 +234,25 @@ def send_to_database():
                     existing_inscription = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
 
                     if existing_inscription is None:
+                        raw_atf = inscription_data.get('atf', None)
+                        cleaned_transliteration = extract_cleaned_transliteration(raw_atf)
+                        existing_translation = extract_existing_translation(raw_atf)
+
                         inscription = Inscription(
                             inscription_id=inscription_id,
                             artifact_id=identification.root_id,  # Link to the root_id
-                            atf=inscription_data.get('atf', None)
+                            raw_atf=raw_atf,  # Use raw_atf instead of atf
+                            cleaned_transliteration=cleaned_transliteration,  # Cleaned transliteration
+                            existing_translation=existing_translation,  # Extracted translation
+                            personal_translation=None  # Set to None by default (empty)
                         )
                         session.add(inscription)
                     else:
-                        existing_inscription.atf = inscription_data.get('atf', existing_inscription.atf)
+                        raw_atf = inscription_data.get('atf', existing_inscription.raw_atf)
+                        existing_inscription.raw_atf = raw_atf
+                        existing_inscription.cleaned_transliteration = extract_cleaned_transliteration(raw_atf)  # Update cleaned transliteration
+                        existing_inscription.existing_translation = extract_existing_translation(raw_atf)  # Update the translation if ATF changes
+                        existing_inscription.personal_translation = existing_inscription.personal_translation  # Keep personal_translation unchanged
 
             # Handle Publications
             if 'publications' in record and isinstance(record['publications'], list):
