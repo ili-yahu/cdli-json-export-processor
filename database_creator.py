@@ -1,8 +1,9 @@
 import tkinter as tk  # Import tkinter for GUI functionality such as dialog boxes and user input.
-from tkinter import filedialog, messagebox, Listbox # Specific components from tkinter for file dialog and message boxes
+from tkinter import filedialog, messagebox, Listbox, ttk # Specific components from tkinter for file dialog and message boxes
 # filedialog: For opening a file dialog window to select files.
 # messagebox: For displaying message boxes like error or success alerts.
 # Listbox: For displaying lists in the GUI.
+# ttk: progressbar
 import json  # Import json for working with JSON files
 import re  # Import the regex library
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
@@ -137,8 +138,15 @@ def send_to_database():
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    # Create a progress bar in the existing window
+    progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
+    progress_bar.pack(padx=10, pady=10)
+
+    # Set maximum value for the progress bar
+    progress_bar["maximum"] = len(cleaned_data)
+
     try:
-        for record in cleaned_data:
+        for idx, record in enumerate(cleaned_data):
             if 'id' in record and record['id'] is not None:
                 root_id = record['id']  # Map JSON 'id' to 'root_id'
 
@@ -393,6 +401,9 @@ def send_to_database():
                         collection_id=collection.id
                     )
                     session.add(artifact_collection)
+            # Update the progress bar after each record is processed
+            progress_bar["value"] = idx + 1
+            root.update_idletasks()  # This ensures the GUI updates immediately
 
         session.commit()
         messagebox.showinfo("Success", "Data successfully inserted into the SQLite database.")
@@ -403,6 +414,7 @@ def send_to_database():
 
     finally:
         session.close()
+        progress_bar.pack_forget()  # Remove the progress bar once done
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
