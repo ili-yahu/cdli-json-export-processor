@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox, Listbox, ttk # Specific components f
 # messagebox: For displaying message boxes like error or success alerts.
 # Listbox: For displaying lists in the GUI.
 # ttk: progressbar
+import time  # Import time to calculate estimated time
 import json  # Import json for working with JSON files
 import re  # Import the regex library
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
@@ -142,8 +143,14 @@ def send_to_database():
     progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
     progress_bar.pack(padx=10, pady=10)
 
+    # Create a label to display estimated time
+    time_label = tk.Label(root, text="Estimated Time: Calculating...")
+    time_label.pack(padx=10, pady=5)
+
     # Set maximum value for the progress bar
     progress_bar["maximum"] = len(cleaned_data)
+
+    start_time = time.time()  # Capture the start time
 
     try:
         for idx, record in enumerate(cleaned_data):
@@ -401,8 +408,22 @@ def send_to_database():
                         collection_id=collection.id
                     )
                     session.add(artifact_collection)
-            # Update the progress bar after each record is processed
+             # Update the progress bar after each record is processed
             progress_bar["value"] = idx + 1
+
+            # Calculate elapsed time
+            elapsed_time = time.time() - start_time
+
+            # Calculate the estimated time remaining based on the average time per record
+            records_processed = idx + 1
+            avg_time_per_record = elapsed_time / records_processed
+            remaining_records = len(cleaned_data) - records_processed
+            estimated_time_remaining = avg_time_per_record * remaining_records
+
+            # Update the time label with the estimated time remaining
+            minutes, seconds = divmod(estimated_time_remaining, 60)
+            time_label.config(text=f"Estimated Time: {int(minutes)}m {int(seconds)}s remaining")
+
             root.update_idletasks()  # This ensures the GUI updates immediately
 
         session.commit()
@@ -415,6 +436,7 @@ def send_to_database():
     finally:
         session.close()
         progress_bar.pack_forget()  # Remove the progress bar once done
+        time_label.pack_forget()  # Remove the time label once done
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
