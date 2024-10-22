@@ -8,6 +8,7 @@ from tkinter.scrolledtext import ScrolledText
 import time  # Import time to calculate estimated time
 import json  # Import json for working with JSON files
 import re  # Import the regex library
+from tkhtmlview import HTMLText, RenderHTML
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
 # create_engine: To create a connection to the SQLite database
 from sqlalchemy.orm import sessionmaker
@@ -490,25 +491,16 @@ help_frame = ttk.Frame(notebook)
 notebook.add(help_frame, text='Help')
 
 # Add help text using ScrolledText
-help_text = ScrolledText(help_frame, wrap=tk.WORD, height=15, width=70)
-help_text.pack(padx=10, pady=10)
-
-# Insert help content
-help_text.insert(tk.END, "Help Information:\n\n1. Use the 'Select JSON Files' button to select your files. Because the JSON files you get from the CDLI are not correctly formatted for SQL, they are automatically cleaned when selected.\n2. Select or create a database to send the cleaned data to.\n3. Click 'Send to SQLite' to export the cleaned data to the database. The process may  take a few minutes depending on the size of the files.\n\nFor further assistance, please refer to the documentation on the GitHub repository: https://github.com/ili-yahu/database_manager.")
-
-# Make the text widget read-only
-help_text.config(state=tk.DISABLED)
+help_text = HTMLText(help_frame, html=RenderHTML('help_tab.html'))
+help_text.pack()
 
 # Create a frame for the credits tab
 credits_frame = ttk.Frame(notebook)
-notebook.add(credits_frame, text='Help')
+notebook.add(credits_frame, text='Credits')
 
 # Add help text using ScrolledText
-credits_text = ScrolledText(credits_frame, wrap=tk.WORD, height=15, width=70)
-credits_text.pack(padx=10, pady=10)
-
-# Insert help content
-credits_text.insert(tk.END, "Developed by Ilī-Yahu, with the assistance of ChatGPT-4 mini, a large language model that provided many code snippets and corrections.")
+credits_text = HTMLText(credits_frame, html=RenderHTML('credits_tab.html'))
+credits_text.pack()
 
 # Make the text widget read-only
 credits_text.config(state=tk.DISABLED)
