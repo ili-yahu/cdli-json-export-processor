@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox, Listbox, ttk # Specific components f
 # messagebox: For displaying message boxes like error or success alerts.
 # Listbox: For displaying lists in the GUI.
 # ttk: progressbar
+from tkinter.scrolledtext import ScrolledText
 import time  # Import time to calculate estimated time
 import json  # Import json for working with JSON files
 import re  # Import the regex library
@@ -399,7 +400,7 @@ def send_to_database():
     Session = sessionmaker(bind=engine)
 
     # Create a frame to contain the progress bar and time label
-    progress_frame = tk.Frame(root, bg='white')  # Set background color for the frame
+    progress_frame = tk.Frame(main_frame, bg='white')  # Set background color for the frame
     progress_frame.pack(side="bottom", fill=tk.BOTH)  # Ensure it fills space
 
     # Create the progress bar inside the frame
@@ -445,6 +446,7 @@ def send_to_database():
 root = tk.Tk()  # Create the main window for the application
 root.configure(bg='white')
 root.title("JSON Cleaner and SQLite Exporter")  # Set the title of the window
+#root.iconbitmap('.assets/XXX.ico')
 
 # Center the window on the screen
 window_width = 600
@@ -459,21 +461,57 @@ center_y = int(screen_height/2 - window_height / 2)
 # set the position of the window to the center of the screen
 root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 
+# Notebook widget for the tabs
+notebook = ttk.Notebook(root)
+notebook.pack(fill=tk.BOTH, expand=True)
+
+# Frame for the main interface
+main_frame = ttk.Frame(notebook)
+notebook.add(main_frame, text='Main')
+
 # Button to select JSON files and clean them automatically
-select_files_button = tk.Button(root, text="Select JSON Files", command=select_and_clean_files)
+select_files_button = tk.Button(main_frame, text="Select JSON Files", command=select_and_clean_files)
 select_files_button.pack(fill=tk.BOTH)  # Add the button to the window
 
 # Listbox to display the selected JSON files
-file_listbox = Listbox(root, selectmode=tk.MULTIPLE)  # Allow multiple selections
+file_listbox = Listbox(main_frame, selectmode=tk.MULTIPLE)  # Allow multiple selections
 file_listbox.pack(fill=tk.BOTH, expand=True)  # Pack the listbox to fill the window
 
 # Button to select or create the database
-database_button = tk.Button(root, text="Select/Create Database", command=select_database)
+database_button = tk.Button(main_frame, text="Select/Create Database", command=select_database)
 database_button.pack(side="left", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the button to the window
 
 # Button to send cleaned JSON data to the selected database
-send_button = tk.Button(root, text="Send to SQLite", command=send_to_database)
+send_button = tk.Button(main_frame, text="Send to SQLite", command=send_to_database)
 send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the button to the window
+
+# Create a frame for the help tab
+help_frame = ttk.Frame(notebook)
+notebook.add(help_frame, text='Help')
+
+# Add help text using ScrolledText
+help_text = ScrolledText(help_frame, wrap=tk.WORD, height=15, width=70)
+help_text.pack(padx=10, pady=10)
+
+# Insert help content
+help_text.insert(tk.END, "Help Information:\n\n1. Use the 'Select JSON Files' button to select your files. Because the JSON files you get from the CDLI are not correctly formatted for SQL, they are automatically cleaned when selected.\n2. Select or create a database to send the cleaned data to.\n3. Click 'Send to SQLite' to export the cleaned data to the database. The process may  take a few minutes depending on the size of the files.\n\nFor further assistance, please refer to the documentation on the GitHub repository: https://github.com/ili-yahu/database_manager.")
+
+# Make the text widget read-only
+help_text.config(state=tk.DISABLED)
+
+# Create a frame for the credits tab
+credits_frame = ttk.Frame(notebook)
+notebook.add(credits_frame, text='Help')
+
+# Add help text using ScrolledText
+credits_text = ScrolledText(credits_frame, wrap=tk.WORD, height=15, width=70)
+credits_text.pack(padx=10, pady=10)
+
+# Insert help content
+credits_text.insert(tk.END, "Developed by Ilī-Yahu, with the assistance of ChatGPT-4 mini, a large language model that provided many code snippets and corrections.")
+
+# Make the text widget read-only
+credits_text.config(state=tk.DISABLED)
 
 # Run the GUI event loop
 root.mainloop()  # Start the application
