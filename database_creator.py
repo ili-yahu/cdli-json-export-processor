@@ -114,11 +114,271 @@ def select_database():
         filetypes=[("SQLite Database", "*.db")],  # Filter for SQLite database files
         title="Select or Create Database"
     )
-    
-    if database_path:  # If a database path was selected
-        messagebox.showinfo("Database Selected", f"Database file selected: {database_path}")  # Inform the user
+    # Validation check for valid database path
+    if database_path and database_path.endswith('.db'):  # Ensure it ends with '.db'
+        messagebox.showinfo("Database Selected", f"Database file selected: {database_path}")
     else:
-        database_path = None  # If no path selected, set to None
+        database_path = None
+        messagebox.showerror("Invalid Selection", "Please select a valid .db file.")
+
+# Define helper functions outside of the if-else block
+def replace_characters(text):
+    """Replace certain characters in a text string based on specific rules."""
+    replacements = {
+        "sz": "š", "s,": "ṣ", "t,": "ṭ", "h": "ḫ"
+    }
+    # Use regex for replacements in a single pass
+    pattern = re.compile('|'.join(re.escape(k) for k in replacements))
+    text = pattern.sub(lambda m: replacements[m.group(0)], text)
+
+    # Replace text inside underscores with uppercase
+    return re.sub(r'_(.*?)_', lambda m: m.group(1).upper(), text)
+
+# Clean transliterations
+def extract_cleaned_transliteration(raw_atf):
+    """Clean and format the raw ATF transliteration data."""
+    if not raw_atf:
+        return None
+
+    cleaned_lines = []  # Initialize an empty list to hold cleaned lines
+    raw_atf_lines = raw_atf.splitlines()  # Split the raw ATF data into individual lines
+
+    for line in raw_atf_lines:
+        stripped_line = line.strip()  # Strip whitespace from the beginning and end of the line
+
+        # Ignore lines that start with metadata or special characters (#tr., &P, or #)
+        if stripped_line.startswith("#tr.") or stripped_line.startswith("\u0026P") or stripped_line.startswith("#"):
+            continue
+
+        # Apply character replacements and case conversions
+        cleaned_line = replace_characters(stripped_line)
+        cleaned_lines.append(cleaned_line)  # Append cleaned line to the list
+
+    # Return the cleaned transliteration as a single string or None if the list is empty
+    return "\n".join(cleaned_lines) if cleaned_lines else None
+
+# Extract translations
+def extract_existing_translation(raw_atf):
+    """Extract existing translations from the raw ATF data."""
+    if not raw_atf:
+        return None
+
+    translation_lines = []
+    raw_atf_lines = raw_atf.splitlines()
+    nearest_prefix = None
+
+    for i, line in enumerate(raw_atf_lines):
+        stripped_line = line.strip()
+
+        # Check if the line is a translation line (starts with #tr. but NOT #tr.ts:)
+        if stripped_line.startswith("#tr.") and not stripped_line.startswith("#tr.ts:"):
+            # Find the nearest line above that doesn't start with #tr or #
+            for j in range(i - 1, -1, -1):  # Traverse upwards from the current line
+                if not raw_atf_lines[j].strip().startswith("#"):
+                    nearest_prefix = re.split(r'\s+', raw_atf_lines[j].strip())[0]  # Get the first "word" (number usually)
+                    break
+
+            # If a prefix is found, add the translation line with the prefix
+            if nearest_prefix:
+                # Remove "#tr.*:" and add the nearest prefix
+                cleaned_translation = stripped_line.split(":", 1)[1].strip()  # Get the part after "#tr.*:"
+                translation_lines.append(f"{nearest_prefix} {cleaned_translation}")
+
+    # Return None if no translation lines were found
+    return "\n".join(translation_lines) if translation_lines else None
+
+def process_record(session, record):
+    if 'id' in record:
+        root_id = record['id']
+
+        # Check if Identification (artifact) exists
+        existing_identification = session.query(Identification).filter_by(root_id=root_id).first()
+
+        if existing_identification is None:
+            identification = Identification(
+                root_id=root_id, 
+                composite_no=record.get('composite_no', None),
+                designation=record.get('designation', None),
+                artifact_type_comments=record.get('artifact_type_comments', None),
+                excavation_no=record.get('excavation_no', None),
+                museum_no=record.get('museum_no', None),
+                findspot_comments=record.get('findspot_comments', None),
+                findspot_square=record.get('findspot_square', None),
+                thickness=record.get('thickness', None),
+                height=record.get('height', None),
+                width=record.get('width', None),
+            )
+            session.add(identification)
+        else:
+            identification = existing_identification
+
+        # Handle Inscription
+        if 'inscription' in record and record['inscription']:
+            inscription_data = record['inscription']
+            if isinstance(inscription_data, dict):
+                inscription_id = inscription_data.get('id', None)
+                existing_inscription = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
+
+                if existing_inscription is None:
+                    raw_atf = inscription_data.get('atf', None)
+                    cleaned_transliteration = extract_cleaned_transliteration(raw_atf)
+                    existing_translation = extract_existing_translation(raw_atf)
+
+                    inscription = Inscription(
+                        inscription_id=inscription_id,
+                        artifact_id=identification.root_id,  # Link to the root_id
+                        raw_atf=raw_atf,  # Use raw_atf instead of atf
+                        cleaned_transliteration=cleaned_transliteration,  # Cleaned transliteration
+                        existing_translation=existing_translation,  # Extracted translation
+                        personal_translation=None  # Set to None by default (empty)
+                    )
+                    session.add(inscription)
+                else:
+                    raw_atf = inscription_data.get('atf', existing_inscription.raw_atf)
+                    existing_inscription.raw_atf = raw_atf
+                    existing_inscription.cleaned_transliteration = extract_cleaned_transliteration(raw_atf)  # Update cleaned transliteration
+                    existing_inscription.existing_translation = extract_existing_translation(raw_atf)  # Update the translation if ATF changes
+                    existing_inscription.personal_translation = existing_inscription.personal_translation  # Keep personal_translation unchanged
+
+        # Handle Publications
+        if 'publications' in record and isinstance(record['publications'], list):
+            for pub in record['publications']:
+                publication_data = pub.get('publication', {})
+                existing_pub = session.query(Publication).filter_by(id=publication_data.get('id')).first()
+
+                if existing_pub is None:
+                    publication = Publication(
+                        id=publication_data.get('id', None),
+                        designation=publication_data.get('designation', None),
+                        bibtexkey=publication_data.get('bibtexkey', None),
+                        year=publication_data.get('year', None),
+                        address=publication_data.get('address', None),
+                        number=publication_data.get('number', None),
+                        publisher=publication_data.get('publisher', None),
+                        title=publication_data.get('title', None),
+                        series=publication_data.get('series', None),
+                    )
+                    session.add(publication)
+                else:
+                    publication = existing_pub
+
+                artifact_publication = ArtifactPublication(
+                    artifact_id=identification.root_id,
+                    publication_id=publication.id,
+                    exact_reference=pub.get('exact_reference', None)
+                )
+                session.add(artifact_publication)
+
+        # Handle Materials
+        if 'materials' in record and isinstance(record['materials'], list):
+            for mat in record['materials']:
+                material_data = mat.get('material', {})
+                existing_material = session.query(Material).filter_by(id=material_data.get('id')).first()
+
+                if existing_material is None:
+                    material = Material(
+                        id=material_data.get('id', None),
+                        material=material_data.get('material', None)
+                    )
+                    session.add(material)
+                else:
+                    material = existing_material
+
+                artifact_material = ArtifactMaterial(
+                    artifact_id=identification.root_id,
+                    material_id=material.id
+                )
+                session.add(artifact_material)
+
+        # Handle Languages
+        if 'languages' in record and isinstance(record['languages'], list):
+            for lang in record['languages']:
+                language_data = lang.get('language', {})
+                existing_language = session.query(Language).filter_by(id=language_data.get('id')).first()
+
+                if existing_language is None:
+                    language = Language(
+                        id=language_data.get('id', None),
+                        language=language_data.get('language', None)
+                    )
+                    session.add(language)
+                else:
+                    language = existing_language
+
+                artifact_language = ArtifactLanguage(
+                    artifact_id=identification.root_id,
+                    language_id=language.id
+                )
+                session.add(artifact_language)
+
+        # Handle Genres
+        if 'genres' in record and isinstance(record['genres'], list):
+            for gen in record['genres']:
+                genre_data = gen.get('genre', {})
+                existing_genre = session.query(Genre).filter_by(id=genre_data.get('id')).first()
+
+                if existing_genre is None:
+                    genre = Genre(
+                        id=genre_data.get('id', None),
+                        genre=genre_data.get('genre', None)
+                    )
+                    session.add(genre)
+                else:
+                    genre = existing_genre
+
+                artifact_genre = ArtifactGenre(
+                    artifact_id=identification.root_id,
+                    genre_id=genre.id,
+                    comments=gen.get('comments', None)
+                )
+                session.add(artifact_genre)
+
+        # Handle External Resources
+        if 'external_resources' in record and isinstance(record['external_resources'], list):
+            for ext_res in record['external_resources']:
+                ext_res_data = ext_res.get('external_resource', {})
+                existing_ext_res = session.query(ExternalResource).filter_by(id=ext_res_data.get('id')).first()
+
+                if existing_ext_res is None:
+                    external_resource = ExternalResource(
+                        id=ext_res_data.get('id', None),
+                        external_resource=ext_res_data.get('external_resource', None),
+                        base_url=ext_res_data.get('base_url', None),
+                        project_url=ext_res_data.get('project_url', None),
+                        abbrev=ext_res_data.get('abbrev', None)
+                    )
+                    session.add(external_resource)
+                else:
+                    external_resource = existing_ext_res
+
+                artifact_ext_res = ArtifactExternalResource(
+                    artifact_id=identification.root_id,
+                    external_resource_id=external_resource.id,
+                    external_resource_key=ext_res.get('external_resource_key', None)
+                )
+                session.add(artifact_ext_res)
+
+        # Handle Collections
+        if 'collections' in record and isinstance(record['collections'], list):
+            for coll in record['collections']:
+                collection_data = coll.get('collection', {})
+                existing_collection = session.query(Collection).filter_by(id=collection_data.get('id')).first()
+
+                if existing_collection is None:
+                    collection = Collection(
+                        id=collection_data.get('id', None),
+                        collection=collection_data.get('collection', None),
+                        collection_url=collection_data.get('collection_url', None)
+                    )
+                    session.add(collection)
+                else:
+                    collection = existing_collection
+
+                artifact_collection = ArtifactCollection(
+                    artifact_id=identification.root_id,
+                    collection_id=collection.id
+                )
+                session.add(artifact_collection)
 
 def send_to_database():
     global database_path, cleaned_data
@@ -132,311 +392,50 @@ def send_to_database():
         return
 
     engine = create_engine(f'sqlite:///{database_path}')
-    
-    # Drop existing tables before creating new ones
-    Base.metadata.drop_all(engine)  # This will drop all tables defined in Base
-    Base.metadata.create_all(engine)  # This will create the new tables
-    Session = sessionmaker(bind=engine)
-    session = Session()
 
-    # Create a progress bar in the existing window
+    # Drop and recreate tables to ensure we're working with fresh ones
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+
+    # Create a progress bar to track the progress of database insertion
     progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
     progress_bar.pack(padx=10, pady=10)
+    progress_bar["maximum"] = len(cleaned_data)  # Set the progress bar's max to the number of records
 
-    # Create a label to display estimated time
+    # Create a label to display the estimated remaining time
     time_label = tk.Label(root, text="Estimated Time: Calculating...")
     time_label.pack(padx=10, pady=5)
 
-    # Set maximum value for the progress bar
-    progress_bar["maximum"] = len(cleaned_data)
-
-    start_time = time.time()  # Capture the start time
+    start_time = time.time()  # Start the timer
 
     try:
-        for idx, record in enumerate(cleaned_data):
-            if 'id' in record and record['id'] is not None:
-                root_id = record['id']  # Map JSON 'id' to 'root_id'
+        with Session() as session:  # Use context manager to automatically close session
+            for idx, record in enumerate(cleaned_data):
+                # Call the function to process each record
+                process_record(session, record)  # This is where you handle table insertions
 
-                # Check if Identification (artifact) exists
-                existing_identification = session.query(Identification).filter_by(root_id=root_id).first()
+                # Update the progress bar and UI
+                progress_bar["value"] = idx + 1
+                root.update_idletasks()
 
-                if existing_identification is None:
-                    identification = Identification(
-                        root_id=root_id, 
-                        composite_no=record.get('composite_no', None),
-                        designation=record.get('designation', None),
-                        artifact_type_comments=record.get('artifact_type_comments', None),
-                        excavation_no=record.get('excavation_no', None),
-                        museum_no=record.get('museum_no', None),
-                        findspot_comments=record.get('findspot_comments', None),
-                        findspot_square=record.get('findspot_square', None),
-                        thickness=record.get('thickness', None),
-                        height=record.get('height', None),
-                        width=record.get('width', None),
-                    )
-                    session.add(identification)
-                else:
-                    identification = existing_identification
-            def replace_characters(text):
-                replacements = {
-                    "sz": "š",
-                    "s,": "ṣ",
-                    "t,": "ṭ",
-                    "h": "ḫ"
-                }
-                # Replace characters based on the replacements dictionary
-                for old, new in replacements.items():
-                    text = text.replace(old, new)
+                # Calculate the elapsed time
+                elapsed_time = time.time() - start_time
+                avg_time_per_record = elapsed_time / (idx + 1)  # Average time per record
+                remaining_records = len(cleaned_data) - (idx + 1)  # Remaining records to process
+                estimated_time_remaining = avg_time_per_record * remaining_records  # Estimate remaining time
 
-                # Replace text between underscores with uppercase
-                text = re.sub(r'_(.*?)_', lambda m: m.group(1).upper(), text)
+                # Convert estimated time to minutes and seconds
+                minutes, seconds = divmod(estimated_time_remaining, 60)
+                time_label.config(text=f"Estimated Time: {int(minutes)}m {int(seconds)}s remaining")
 
-                return text
-            def extract_cleaned_transliteration(raw_atf):
-                if not raw_atf:
-                    return None
-
-                cleaned_lines = []
-                raw_atf_lines = raw_atf.splitlines()
-
-                for line in raw_atf_lines:
-                    stripped_line = line.strip()
-
-                    # Skip lines that start with #tr.
-                    if stripped_line.startswith("#tr.") or stripped_line.startswith("\u0026P") or stripped_line.startswith("#"):
-                        continue
-
-                    # Apply the character replacements and uppercase for underscores
-                    cleaned_line = replace_characters(stripped_line)
-                    cleaned_lines.append(cleaned_line)
-
-                # Join the cleaned lines into a single transliteration text
-                return "\n".join(cleaned_lines) if cleaned_lines else None
-            
-            def extract_existing_translation(raw_atf):
-                if not raw_atf:
-                    return None
-
-                translation_lines = []
-                raw_atf_lines = raw_atf.splitlines()
-                nearest_prefix = None
-
-                for i, line in enumerate(raw_atf_lines):
-                    stripped_line = line.strip()
-
-                    # Check if the line is a translation line (starts with #tr. but NOT #tr.ts:)
-                    if stripped_line.startswith("#tr.") and not stripped_line.startswith("#tr.ts:"):
-                        # Find the nearest line above that doesn't start with #tr or #
-                        for j in range(i - 1, -1, -1):  # Traverse upwards from the current line
-                            if not raw_atf_lines[j].strip().startswith("#"):
-                                nearest_prefix = re.split(r'\s+', raw_atf_lines[j].strip())[0]  # Get the first "word" (number usually)
-                                break
-
-                        # If a prefix is found, add the translation line with the prefix
-                        if nearest_prefix:
-                            # Remove "#tr.*:" and add the nearest prefix
-                            cleaned_translation = stripped_line.split(":", 1)[1].strip()  # Get the part after "#tr.*:"
-                            translation_lines.append(f"{nearest_prefix} {cleaned_translation}")
-
-                # Return None if no translation lines were found
-                return "\n".join(translation_lines) if translation_lines else None
-
-            # Handle Inscription
-            if 'inscription' in record and record['inscription']:
-                inscription_data = record['inscription']
-                if isinstance(inscription_data, dict):
-                    inscription_id = inscription_data.get('id', None)
-                    existing_inscription = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
-
-                    if existing_inscription is None:
-                        raw_atf = inscription_data.get('atf', None)
-                        cleaned_transliteration = extract_cleaned_transliteration(raw_atf)
-                        existing_translation = extract_existing_translation(raw_atf)
-
-                        inscription = Inscription(
-                            inscription_id=inscription_id,
-                            artifact_id=identification.root_id,  # Link to the root_id
-                            raw_atf=raw_atf,  # Use raw_atf instead of atf
-                            cleaned_transliteration=cleaned_transliteration,  # Cleaned transliteration
-                            existing_translation=existing_translation,  # Extracted translation
-                            personal_translation=None  # Set to None by default (empty)
-                        )
-                        session.add(inscription)
-                    else:
-                        raw_atf = inscription_data.get('atf', existing_inscription.raw_atf)
-                        existing_inscription.raw_atf = raw_atf
-                        existing_inscription.cleaned_transliteration = extract_cleaned_transliteration(raw_atf)  # Update cleaned transliteration
-                        existing_inscription.existing_translation = extract_existing_translation(raw_atf)  # Update the translation if ATF changes
-                        existing_inscription.personal_translation = existing_inscription.personal_translation  # Keep personal_translation unchanged
-
-            # Handle Publications
-            if 'publications' in record and isinstance(record['publications'], list):
-                for pub in record['publications']:
-                    publication_data = pub.get('publication', {})
-                    existing_pub = session.query(Publication).filter_by(id=publication_data.get('id')).first()
-
-                    if existing_pub is None:
-                        publication = Publication(
-                            id=publication_data.get('id', None),
-                            designation=publication_data.get('designation', None),
-                            bibtexkey=publication_data.get('bibtexkey', None),
-                            year=publication_data.get('year', None),
-                            address=publication_data.get('address', None),
-                            number=publication_data.get('number', None),
-                            publisher=publication_data.get('publisher', None),
-                            title=publication_data.get('title', None),
-                            series=publication_data.get('series', None),
-                        )
-                        session.add(publication)
-                    else:
-                        publication = existing_pub
-
-                    artifact_publication = ArtifactPublication(
-                        artifact_id=identification.root_id,
-                        publication_id=publication.id,
-                        exact_reference=pub.get('exact_reference', None)
-                    )
-                    session.add(artifact_publication)
-
-            # Handle Materials
-            if 'materials' in record and isinstance(record['materials'], list):
-                for mat in record['materials']:
-                    material_data = mat.get('material', {})
-                    existing_material = session.query(Material).filter_by(id=material_data.get('id')).first()
-
-                    if existing_material is None:
-                        material = Material(
-                            id=material_data.get('id', None),
-                            material=material_data.get('material', None)
-                        )
-                        session.add(material)
-                    else:
-                        material = existing_material
-
-                    artifact_material = ArtifactMaterial(
-                        artifact_id=identification.root_id,
-                        material_id=material.id
-                    )
-                    session.add(artifact_material)
-
-            # Handle Languages
-            if 'languages' in record and isinstance(record['languages'], list):
-                for lang in record['languages']:
-                    language_data = lang.get('language', {})
-                    existing_language = session.query(Language).filter_by(id=language_data.get('id')).first()
-
-                    if existing_language is None:
-                        language = Language(
-                            id=language_data.get('id', None),
-                            language=language_data.get('language', None)
-                        )
-                        session.add(language)
-                    else:
-                        language = existing_language
-
-                    artifact_language = ArtifactLanguage(
-                        artifact_id=identification.root_id,
-                        language_id=language.id
-                    )
-                    session.add(artifact_language)
-
-            # Handle Genres
-            if 'genres' in record and isinstance(record['genres'], list):
-                for gen in record['genres']:
-                    genre_data = gen.get('genre', {})
-                    existing_genre = session.query(Genre).filter_by(id=genre_data.get('id')).first()
-
-                    if existing_genre is None:
-                        genre = Genre(
-                            id=genre_data.get('id', None),
-                            genre=genre_data.get('genre', None)
-                        )
-                        session.add(genre)
-                    else:
-                        genre = existing_genre
-
-                    artifact_genre = ArtifactGenre(
-                        artifact_id=identification.root_id,
-                        genre_id=genre.id,
-                        comments=gen.get('comments', None)
-                    )
-                    session.add(artifact_genre)
-
-            # Handle External Resources
-            if 'external_resources' in record and isinstance(record['external_resources'], list):
-                for ext_res in record['external_resources']:
-                    ext_res_data = ext_res.get('external_resource', {})
-                    existing_ext_res = session.query(ExternalResource).filter_by(id=ext_res_data.get('id')).first()
-
-                    if existing_ext_res is None:
-                        external_resource = ExternalResource(
-                            id=ext_res_data.get('id', None),
-                            external_resource=ext_res_data.get('external_resource', None),
-                            base_url=ext_res_data.get('base_url', None),
-                            project_url=ext_res_data.get('project_url', None),
-                            abbrev=ext_res_data.get('abbrev', None)
-                        )
-                        session.add(external_resource)
-                    else:
-                        external_resource = existing_ext_res
-
-                    artifact_ext_res = ArtifactExternalResource(
-                        artifact_id=identification.root_id,
-                        external_resource_id=external_resource.id,
-                        external_resource_key=ext_res.get('external_resource_key', None)
-                    )
-                    session.add(artifact_ext_res)
-
-            # Handle Collections
-            if 'collections' in record and isinstance(record['collections'], list):
-                for coll in record['collections']:
-                    collection_data = coll.get('collection', {})
-                    existing_collection = session.query(Collection).filter_by(id=collection_data.get('id')).first()
-
-                    if existing_collection is None:
-                        collection = Collection(
-                            id=collection_data.get('id', None),
-                            collection=collection_data.get('collection', None),
-                            collection_url=collection_data.get('collection_url', None)
-                        )
-                        session.add(collection)
-                    else:
-                        collection = existing_collection
-
-                    artifact_collection = ArtifactCollection(
-                        artifact_id=identification.root_id,
-                        collection_id=collection.id
-                    )
-                    session.add(artifact_collection)
-             # Update the progress bar after each record is processed
-            progress_bar["value"] = idx + 1
-
-            # Calculate elapsed time
-            elapsed_time = time.time() - start_time
-
-            # Calculate the estimated time remaining based on the average time per record
-            records_processed = idx + 1
-            avg_time_per_record = elapsed_time / records_processed
-            remaining_records = len(cleaned_data) - records_processed
-            estimated_time_remaining = avg_time_per_record * remaining_records
-
-            # Update the time label with the estimated time remaining
-            minutes, seconds = divmod(estimated_time_remaining, 60)
-            time_label.config(text=f"Estimated Time: {int(minutes)}m {int(seconds)}s remaining")
-
-            root.update_idletasks()  # This ensures the GUI updates immediately
-
-        session.commit()
+            session.commit()  # Commit the session once all records are inserted
         messagebox.showinfo("Success", "Data successfully inserted into the SQLite database.")
-
     except Exception as e:
-        session.rollback()
         messagebox.showerror("Error", f"An error occurred: {e}")
-
     finally:
-        session.close()
-        progress_bar.pack_forget()  # Remove the progress bar once done
-        time_label.pack_forget()  # Remove the time label once done
+        progress_bar.pack_forget()  # Remove the progress bar when done
+        time_label.pack_forget()  # Remove the time label when done
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application

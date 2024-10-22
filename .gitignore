@@ -1,2 +1,4 @@
 sample_json_files/
 __pycache__/
+*.db
+*.db-journal
