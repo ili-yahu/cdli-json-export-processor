@@ -45,7 +45,7 @@ def add_file_to_list(file_path):
     label.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Pack the label in the frame
 
     # Create a delete button to remove the file from the list
-    delete_button = tk.Button(frame, text='X', command=lambda: remove_file(frame, file_path))  # Button to delete the file
+    delete_button = tk.Button(frame, text='X', command=lambda: remove_file(frame, file_path), bg='red', fg='white', font=('Arial', 12, 'bold'))  # Button to delete the file
     delete_button.pack(side=tk.RIGHT)  # Align delete button to the right of the label
 
 # Function to remove a specific file from the list
@@ -398,13 +398,16 @@ def send_to_database():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
 
-    # Create a progress bar to track the progress of database insertion
-    progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
-    progress_bar.pack(padx=10, pady=10)
-    progress_bar["maximum"] = len(cleaned_data)  # Set the progress bar's max to the number of records
+    # Create a frame to contain the progress bar and time label
+    progress_frame = tk.Frame(root, bg='white')  # Set background color for the frame
+    progress_frame.pack(side="bottom", fill=tk.BOTH)  # Ensure it fills space
 
-    # Create a label to display the estimated remaining time
-    time_label = tk.Label(root, text="Estimated Time: Calculating...")
+    # Create the progress bar inside the frame
+    progress_bar = ttk.Progressbar(progress_frame, orient="horizontal", length=300, mode="determinate")
+    progress_bar.pack(padx=10, pady=10)
+
+    # Create the label for the estimated remaining time inside the frame
+    time_label = tk.Label(progress_frame, text="Estimated Time: Calculating...", bg='white')  # Set background color for the label
     time_label.pack(padx=10, pady=5)
 
     start_time = time.time()  # Start the timer
@@ -434,16 +437,31 @@ def send_to_database():
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
     finally:
+        progress_frame.pack_forget()  # Remove the progress frame when done
         progress_bar.pack_forget()  # Remove the progress bar when done
         time_label.pack_forget()  # Remove the time label when done
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
+root.configure(bg='white')
 root.title("JSON Cleaner and SQLite Exporter")  # Set the title of the window
+
+# Center the window on the screen
+window_width = 600
+window_height = 300
+# Get the screen dimension
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+# Find the center point
+center_x = int(screen_width/2 - window_width / 2)
+center_y = int(screen_height/2 - window_height / 2)
+
+# set the position of the window to the center of the screen
+root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 
 # Button to select JSON files and clean them automatically
 select_files_button = tk.Button(root, text="Select JSON Files", command=select_and_clean_files)
-select_files_button.pack()  # Add the button to the window
+select_files_button.pack(fill=tk.BOTH)  # Add the button to the window
 
 # Listbox to display the selected JSON files
 file_listbox = Listbox(root, selectmode=tk.MULTIPLE)  # Allow multiple selections
@@ -451,11 +469,11 @@ file_listbox.pack(fill=tk.BOTH, expand=True)  # Pack the listbox to fill the win
 
 # Button to select or create the database
 database_button = tk.Button(root, text="Select/Create Database", command=select_database)
-database_button.pack()  # Add the button to the window
+database_button.pack(side="left", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the button to the window
 
 # Button to send cleaned JSON data to the selected database
 send_button = tk.Button(root, text="Send to SQLite", command=send_to_database)
-send_button.pack()  # Add the button to the window
+send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the button to the window
 
 # Run the GUI event loop
 root.mainloop()  # Start the application
