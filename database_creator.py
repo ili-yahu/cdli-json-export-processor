@@ -448,7 +448,7 @@ def send_to_database():
 def open_github_link(event):
     webbrowser.open_new("https://github.com/ili-yahu/database_manager")
 def mail_to(event):
-    webbrowser.open_new("mailto:ili-yahu@pm.me")
+    webbrowser.open_new("mailto:Ili-Yahu@pm.me")
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
@@ -538,7 +538,7 @@ notebook.add(credits_frame, text='Credits')
 # Credits information
 credits_author = tk.Label(credits_frame, text=f"Author: {AUTHOR}", font=("Arial", 12))
 credits_author.pack()
-address_link = tk.Label(credits_frame, text="ili-yahu@pm.me", font=("Arial", 12), fg="blue", cursor="hand2")
+address_link = tk.Label(credits_frame, text="Ili-Yahu@pm.me", font=("Arial", 12), fg="blue", cursor="hand2")
 address_link.pack()
 address_link.bind("<Button-1>", mail_to)
 credits_license = tk.Label(credits_frame, text=f"License: {LICENSE}", font=("Arial", 12))
@@ -547,9 +547,6 @@ credits_version = tk.Label(credits_frame, text=f"Version: {VERSION}", font=("Ari
 credits_version.pack()
 credits_update = tk.Label(credits_frame, text=f"Last updated: {LATEST_UPDATE}", font=("Arial", 12))
 credits_update.pack()
-
-
-
 
 # Run the GUI event loop
 root.mainloop()  # Start the application
