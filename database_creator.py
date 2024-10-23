@@ -8,7 +8,8 @@ from tkinter.scrolledtext import ScrolledText
 import time  # Import time to calculate estimated time
 import json  # Import json for working with JSON files
 import re  # Import the regex library
-from tkhtmlview import HTMLText, RenderHTML
+import webbrowser # to make the url functional
+from info import VERSION
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
 # create_engine: To create a connection to the SQLite database
 from sqlalchemy.orm import sessionmaker
@@ -443,6 +444,10 @@ def send_to_database():
         progress_bar.pack_forget()  # Remove the progress bar when done
         time_label.pack_forget()  # Remove the time label when done
 
+# Commands for the hyperlink
+def open_link(event):
+    webbrowser.open_new("https://github.com/ili-yahu/database_manager")
+
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
 root.configure(bg='white')
@@ -490,20 +495,51 @@ send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the butto
 help_frame = ttk.Frame(notebook)
 notebook.add(help_frame, text='Help')
 
-# Add help text using ScrolledText
-help_text = HTMLText(help_frame, html=RenderHTML('help_tab.html'))
-help_text.pack()
+# Help information
+help_title_label = tk.Label(help_frame, text="Help Information:", font=("Arial", 20, "bold"), fg="black")
+help_title_label.pack(pady=10, anchor="w")
+
+help_text = (
+    "1. Use the 'Select JSON Files' button to select your files. "
+    "Because the JSON files you get from the CDLI are not correctly formatted for SQL, "
+    "they are automatically cleaned when selected.\n"
+    "2. Select or create a database to send the cleaned data to.\n"
+    "3. Click 'Send to SQLite' to export the cleaned data to the database. "
+    "The process may take a few minutes depending on the size of the files."
+)
+help_body_text = ScrolledText(help_frame, font=("Arial", 14), wrap=tk.WORD, height=5, width=70)  # ScrolledText for help body
+help_body_text.insert(tk.END, help_text)  # Insert help text
+help_body_text.config(state=tk.DISABLED)  # Make it read-only
+help_body_text.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
+
+# Clickable link
+footer_link = tk.Label(help_frame, text="https://github.com/ili-yahu/database_manager", font=("Arial", 10), fg="blue", cursor="hand2")
+footer_link.pack(padx=10, side=tk.BOTTOM)
+footer_link.bind("<Button-1>", open_link)
+
+# Footer with non-clickable text
+footer_text = tk.Label(help_frame, text="For further assistance, please refer to the documentation on the GitHub repository:", font=("Arial", 10), justify="left")
+footer_text.pack(padx=10, side=tk.BOTTOM)
 
 # Create a frame for the credits tab
 credits_frame = ttk.Frame(notebook)
 notebook.add(credits_frame, text='Credits')
 
-# Add help text using ScrolledText
-credits_text = HTMLText(credits_frame, html=RenderHTML('credits_tab.html'))
-credits_text.pack()
+# Credits information
+credits_title_label = tk.Label(credits_frame, text="Credits:", font=("Arial", 20, "bold"), fg="black")
+credits_title_label.pack(pady=10, anchor="w")
+credits_text = (
+    "Developed by Ilī-Yahu, with the assistance of ChatGPT-4 mini,"
+    "a large language model that provided many code snippets and corrections."
+)
+credits_body_text = ScrolledText(credits_frame, font=("Arial", 14), wrap=tk.WORD, height=5, width=70)  # ScrolledText for credits body
+credits_body_text.insert(tk.END, credits_text)  # Insert credits text
+credits_body_text.config(state=tk.DISABLED)  # Make it read-only
+credits_body_text.pack(pady=10, padx=5)
 
-# Make the text widget read-only
-credits_text.config(state=tk.DISABLED)
+# Footer for credits
+credits_footer = tk.Label(credits_frame, text=f"Version: {VERSION}", font=("Arial", 10))
+credits_footer.pack(pady=20, side=tk.BOTTOM)
 
 # Run the GUI event loop
 root.mainloop()  # Start the application
