@@ -1,1 +1,5 @@
-VERSION = "0.8.5"
+VERSION = "beta 0.8.6"
+LICENSE = "MIT"
+AUTHOR = "Ilī-Yahu"
+CONTACT = "ili-yahu@pm.me"
+LATEST_UPDATE = "2024-10-23"

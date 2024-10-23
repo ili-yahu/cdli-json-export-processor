@@ -9,7 +9,7 @@ import time  # Import time to calculate estimated time
 import json  # Import json for working with JSON files
 import re  # Import the regex library
 import webbrowser # to make the url functional
-from info import VERSION
+from info import VERSION, LICENSE, AUTHOR, LATEST_UPDATE, CONTACT
 from sqlalchemy import create_engine  # Import necessary components from SQLAlchemy
 # create_engine: To create a connection to the SQLite database
 from sqlalchemy.orm import sessionmaker
@@ -402,7 +402,7 @@ def send_to_database():
     Session = sessionmaker(bind=engine)
 
     # Create a frame to contain the progress bar and time label
-    progress_frame = tk.Frame(main_frame, bg='white')  # Set background color for the frame
+    progress_frame = tk.Frame(home_frame, bg='white')  # Set background color for the frame
     progress_frame.pack(side="bottom", fill=tk.BOTH)  # Ensure it fills space
 
     # Create the progress bar inside the frame
@@ -445,18 +445,20 @@ def send_to_database():
         time_label.pack_forget()  # Remove the time label when done
 
 # Commands for the hyperlink
-def open_link(event):
+def open_github_link(event):
     webbrowser.open_new("https://github.com/ili-yahu/database_manager")
+def mail_to(event):
+    webbrowser.open_new("mailto:ili-yahu@pm.me")
 
 # GUI setup
 root = tk.Tk()  # Create the main window for the application
 root.configure(bg='white')
-root.title("JSON Cleaner and SQLite Exporter")  # Set the title of the window
+root.title("Database manager")  # Set the title of the window
 #root.iconbitmap('.assets/XXX.ico')
 
 # Center the window on the screen
 window_width = 600
-window_height = 300
+window_height = 400
 # Get the screen dimension
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
@@ -467,47 +469,55 @@ center_y = int(screen_height/2 - window_height / 2)
 # set the position of the window to the center of the screen
 root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 
+# Custome styl to increase the size of the tab buttons
+style = ttk.Style()
+style.configure('TNotebook.Tab', font=('Arial','12','bold'), padding=[10, 5])
+
 # Notebook widget for the tabs
 notebook = ttk.Notebook(root)
 notebook.pack(fill=tk.BOTH, expand=True)
 
-# Frame for the main interface
-main_frame = ttk.Frame(notebook)
-notebook.add(main_frame, text='Main')
+# Frame for the home interface
+home_frame = ttk.Frame(notebook)
+notebook.add(home_frame, text='Home')
+
+# Home title label
+home_title_label = tk.Label(home_frame, text="Home page", font=("Arial", 20, "bold"), fg="black")
+home_title_label.pack(pady=5, anchor="w")
 
 # Button to select JSON files and clean them automatically
-select_files_button = tk.Button(main_frame, text="Select JSON Files", command=select_and_clean_files)
-select_files_button.pack(fill=tk.BOTH)  # Add the button to the window
+select_files_button = tk.Button(home_frame, text="Select JSON Files", command=select_and_clean_files)
+select_files_button.pack(ipady= 2, ipadx=5)  # Add the button to the window
 
 # Listbox to display the selected JSON files
-file_listbox = Listbox(main_frame, selectmode=tk.MULTIPLE)  # Allow multiple selections
-file_listbox.pack(fill=tk.BOTH, expand=True)  # Pack the listbox to fill the window
+file_listbox = Listbox(home_frame, selectmode=tk.MULTIPLE)  # Allow multiple selections
+file_listbox.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)  # Pack the listbox to fill the window
 
 # Button to select or create the database
-database_button = tk.Button(main_frame, text="Select/Create Database", command=select_database)
-database_button.pack(side="left", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the button to the window
+database_button = tk.Button(home_frame, text="Select/Create Database", command=select_database)
+database_button.pack(side="left", fill=tk.BOTH, ipady=10, ipadx=5, padx=5)  # Add the button to the window
 
 # Button to send cleaned JSON data to the selected database
-send_button = tk.Button(main_frame, text="Send to SQLite", command=send_to_database)
-send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5)  # Add the button to the window
+send_button = tk.Button(home_frame, text="Send to SQLite", command=send_to_database)
+send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5, padx=5)  # Add the button to the window
 
 # Create a frame for the help tab
 help_frame = ttk.Frame(notebook)
 notebook.add(help_frame, text='Help')
 
 # Help information
-help_title_label = tk.Label(help_frame, text="Help Information:", font=("Arial", 20, "bold"), fg="black")
-help_title_label.pack(pady=10, anchor="w")
+help_title_label = tk.Label(help_frame, text="How to use?", font=("Arial", 20, "bold"), fg="black")
+help_title_label.pack(pady=5, anchor="w")
 
 help_text = (
     "1. Use the 'Select JSON Files' button to select your files. "
     "Because the JSON files you get from the CDLI are not correctly formatted for SQL, "
-    "they are automatically cleaned when selected.\n"
-    "2. Select or create a database to send the cleaned data to.\n"
+    "they are automatically cleaned when selected.\n\n"
+    "2. Select or create a database to send the cleaned data to.\n\n"
     "3. Click 'Send to SQLite' to export the cleaned data to the database. "
     "The process may take a few minutes depending on the size of the files."
 )
-help_body_text = ScrolledText(help_frame, font=("Arial", 14), wrap=tk.WORD, height=5, width=70)  # ScrolledText for help body
+help_body_text = ScrolledText(help_frame, font=("Arial", 14),)  # ScrolledText for help body
 help_body_text.insert(tk.END, help_text)  # Insert help text
 help_body_text.config(state=tk.DISABLED)  # Make it read-only
 help_body_text.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
@@ -515,7 +525,7 @@ help_body_text.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
 # Clickable link
 footer_link = tk.Label(help_frame, text="https://github.com/ili-yahu/database_manager", font=("Arial", 10), fg="blue", cursor="hand2")
 footer_link.pack(padx=10, side=tk.BOTTOM)
-footer_link.bind("<Button-1>", open_link)
+footer_link.bind("<Button-1>", open_github_link)
 
 # Footer with non-clickable text
 footer_text = tk.Label(help_frame, text="For further assistance, please refer to the documentation on the GitHub repository:", font=("Arial", 10), justify="left")
@@ -526,20 +536,20 @@ credits_frame = ttk.Frame(notebook)
 notebook.add(credits_frame, text='Credits')
 
 # Credits information
-credits_title_label = tk.Label(credits_frame, text="Credits:", font=("Arial", 20, "bold"), fg="black")
-credits_title_label.pack(pady=10, anchor="w")
-credits_text = (
-    "Developed by Ilī-Yahu, with the assistance of ChatGPT-4 mini,"
-    "a large language model that provided many code snippets and corrections."
-)
-credits_body_text = ScrolledText(credits_frame, font=("Arial", 14), wrap=tk.WORD, height=5, width=70)  # ScrolledText for credits body
-credits_body_text.insert(tk.END, credits_text)  # Insert credits text
-credits_body_text.config(state=tk.DISABLED)  # Make it read-only
-credits_body_text.pack(pady=10, padx=5)
+credits_author = tk.Label(credits_frame, text=f"Author: {AUTHOR}", font=("Arial", 12))
+credits_author.pack()
+address_link = tk.Label(credits_frame, text="ili-yahu@pm.me", font=("Arial", 12), fg="blue", cursor="hand2")
+address_link.pack()
+address_link.bind("<Button-1>", mail_to)
+credits_license = tk.Label(credits_frame, text=f"License: {LICENSE}", font=("Arial", 12))
+credits_license.pack()
+credits_version = tk.Label(credits_frame, text=f"Version: {VERSION}", font=("Arial", 12))
+credits_version.pack()
+credits_update = tk.Label(credits_frame, text=f"Last updated: {LATEST_UPDATE}", font=("Arial", 12))
+credits_update.pack()
 
-# Footer for credits
-credits_footer = tk.Label(credits_frame, text=f"Version: {VERSION}", font=("Arial", 10))
-credits_footer.pack(pady=20, side=tk.BOTTOM)
+
+
 
 # Run the GUI event loop
 root.mainloop()  # Start the application
