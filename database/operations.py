@@ -28,8 +28,9 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
     if not database_path or not cleaned_data:
         return
 
-    logging.info(f"Starting database operation with {len(cleaned_data)} records")
-    logging.info(f"Database path: {database_path}")
+    if logging.getLogger().hasHandlers():
+        logging.info(f"Starting database operation with {len(cleaned_data)} records")
+        logging.info(f"Database path: {database_path}")
 
     try:
         engine = create_engine(f'sqlite:///{database_path}')
@@ -65,10 +66,12 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
                 for idx, record in enumerate(cleaned_data, 1):
                     try:
                         process_record(session, record)
-                        logging.info(f"Processed record {idx}/{total_records}")
+                        if logging.getLogger().hasHandlers():
+                            logging.info(f"Processed record {idx}/{total_records}")
                     except Exception as record_error:
-                        error_msg = f"Error processing record {idx}: {str(record_error)}"
-                        logging.error(error_msg)
+                        if logging.getLogger().hasHandlers():
+                            error_msg = f"Error processing record {idx}: {str(record_error)}"
+                            logging.error(error_msg)
                         if 'id' in record:
                             logging.error(f"Record ID: {record['id']}")
                         continue
