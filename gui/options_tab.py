@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import logging
 import os
+import sqlalchemy as sa
+from sqlalchemy import inspect
 from utils.config_manager import load_config, save_config
 from utils.file_handler import init_database_path, get_database_path, register_db_path_callback
 
@@ -15,40 +17,62 @@ class OptionsTab:
                              font=("Arial", 20, "bold"), fg="black")
         title_label.pack(pady=20, anchor="w")
 
-        # Logging section
+        # Explore Options section
+        explore_frame = ttk.LabelFrame(self.frame, text="Explore Options")
+        explore_frame.pack(pady=10, padx=20, fill=tk.X)
+
+        # Default table selection
+        default_table_frame = ttk.Frame(explore_frame)
+        default_table_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        table_label = ttk.Label(default_table_frame, text="Default Table:")
+        table_label.pack(side=tk.LEFT, padx=5)
+        
+        config = load_config()
+        default_table_var = tk.StringVar(value=config.get('default_table', 'identification'))
+        table_combo = ttk.Combobox(default_table_frame, textvariable=default_table_var)
+        table_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # Breadcrumb toggle
+        breadcrumb_frame = ttk.Frame(explore_frame)
+        breadcrumb_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        breadcrumb_var = tk.BooleanVar(value=config.get('breadcrumb_enabled', True))
+        breadcrumb_check = ttk.Checkbutton(
+            breadcrumb_frame,
+            text="Enable breadcrumb navigation",
+            variable=breadcrumb_var,
+            command=lambda: save_config({**config, 'breadcrumb_enabled': breadcrumb_var.get()})
+        )
+        breadcrumb_check.pack(anchor='w', padx=5)
+
+        # Logging section (right after explore options)
         log_frame = ttk.LabelFrame(self.frame, text="Logging Options")
-        log_frame.pack(pady=10, padx=5, fill=tk.X)
+        log_frame.pack(pady=10, padx=20, fill=tk.X)  # Removed side=tk.BOTTOM
 
-        # Logging status
-        self.log_status = tk.StringVar(value="Disabled")
-        status_label = tk.Label(log_frame, 
-                              textvariable=self.log_status,
-                              font=("Arial", 12))
-        status_label.pack(side=tk.LEFT, padx=5)
+        # Logging controls frame
+        log_controls = ttk.Frame(log_frame)
+        log_controls.pack(fill=tk.X, padx=5, pady=5)
 
-        # Button frame for log controls
-        button_frame = ttk.Frame(log_frame)
-        button_frame.pack(side=tk.RIGHT)
+        # Logging enable/disable checkbox
+        self.log_enabled = tk.BooleanVar(value=False)
+        log_check = ttk.Checkbutton(
+            log_controls,
+            text="Enable logging",
+            variable=self.log_enabled,
+            command=self.toggle_logging
+        )
+        log_check.pack(anchor='w', padx=5)
 
         # Clean logs button
-        clean_logs_button = tk.Button(
-            button_frame,
+        clean_logs_button = ttk.Button(
+            log_controls,
             text="Clean Logs",
-            command=self.clean_logs,
-            font=("Arial", 12)
+            command=self.clean_logs
         )
-        clean_logs_button.pack(side=tk.LEFT, padx=5, pady=5)
+        clean_logs_button.pack(anchor='w', padx=5, pady=5)
 
-        # Toggle logging button
-        self.toggle_button = tk.Button(
-            button_frame,
-            text="Enable Logging",
-            command=self.toggle_logging,
-            font=("Arial", 12)
-        )
-        self.toggle_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        # Reset all settings button at bottom
+        # Reset button (always at bottom)
         reset_button = tk.Button(
             self.frame,
             text="Reset to Default Configuration",
@@ -57,19 +81,37 @@ class OptionsTab:
         )
         reset_button.pack(side=tk.BOTTOM, pady=20)
 
+        def update_table_list(*args):
+            """Update available tables in combobox"""
+            db_path = get_database_path()
+            if db_path:
+                engine = sa.create_engine(f'sqlite:///{db_path}')
+                inspector = inspect(engine)
+                tables = inspector.get_table_names()
+                table_combo['values'] = tables
+                if default_table_var.get() not in tables:
+                    default_table_var.set('identification')
+
+        def save_default_table(*args):
+            """Save default table setting"""
+            config['default_table'] = default_table_var.get()
+            save_config(config)
+
+        table_combo.bind('<<ComboboxSelected>>', save_default_table)
+        register_db_path_callback(update_table_list)
+        update_table_list()
+
         # Initialize logging status from config
         config = load_config()
         if config.get('logging_enabled', False):
+            self.log_enabled.set(True)
             self.enable_logging()
-        else:
-            self.disable_logging()
 
     def toggle_logging(self):
         """Toggle logging on/off"""
-        if self.log_status.get() == "Disabled":
+        if self.log_enabled.get():
             self.enable_logging()
         else:
-            # Show warning before disabling
             if messagebox.askokcancel(
                 "Warning", 
                 "Disabling logging will delete all existing log files.\n\n"
@@ -77,6 +119,8 @@ class OptionsTab:
                 icon='warning'
             ):
                 self.disable_logging()
+            else:
+                self.log_enabled.set(True)
 
     def enable_logging(self):
         """Enable logging and save to config"""
@@ -92,8 +136,7 @@ class OptionsTab:
                 logging.StreamHandler()
             ]
         )
-        self.log_status.set("Enabled")
-        self.toggle_button.config(text="Disable Logging")
+        self.log_enabled.set(True)
         logging.info("Logging enabled")
         
         config = load_config()
@@ -104,8 +147,7 @@ class OptionsTab:
         """Disable logging, clean logs, and save to config"""
         # Disable logging
         logging.getLogger().handlers = []
-        self.log_status.set("Disabled")
-        self.toggle_button.config(text="Enable Logging")
+        self.log_enabled.set(False)
         
         # Clean logs automatically
         self.clean_logs(show_message=False)
@@ -126,7 +168,7 @@ class OptionsTab:
                 if show_message:
                     messagebox.showinfo("Success", "Log files have been cleaned.")
                 
-                if self.log_status.get() == "Enabled":
+                if self.log_enabled.get():
                     self.disable_logging()
                     self.enable_logging()
             except Exception as e:
