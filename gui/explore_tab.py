@@ -1,9 +1,11 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, Menu, Toplevel
 from utils.file_handler import get_database_path, register_db_path_callback
 import sqlalchemy as sa
 from sqlalchemy import inspect, text, Table, MetaData  # Add MetaData to imports
 from utils.config_manager import load_config
+from collections import defaultdict
+from gui.explore.relation_viewer import RelationViewer
 
 def create_explore_tab(notebook):
     """Create and return the explore tab"""
@@ -50,6 +52,31 @@ def create_explore_tab(notebook):
     vsb.pack(side="right", fill="y")
     hsb.pack(side="bottom", fill="x")
 
+    # Add a frame for actions buttons above the tree
+    actions_frame = ttk.Frame(frame)
+    actions_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+    
+    # Initialize RelationViewer with enhanced callback
+    def handle_table_select(table_name, where_clause=None):
+        table_var.set(table_name)
+        if where_clause:
+            # Modify query to include WHERE clause
+            load_table(table_name, where_clause=where_clause)
+        else:
+            load_table(table_name)
+        add_to_history(table_name)
+
+    relation_viewer = RelationViewer(frame, handle_table_select)
+    
+    view_relations_btn = ttk.Button(
+        actions_frame,
+        text="View Relations for Selected",
+        command=lambda: relation_viewer.show_relations_dialog(
+            [tree.item(item)['values'][0] for item in tree.selection()]
+        )
+    )
+    view_relations_btn.pack(side=tk.LEFT, padx=5)
+
     def sort_by_column(col, reverse=False):
         """Sort treeview by column"""
         data = [(tree.set(child, col), child) for child in tree.get_children('')]
@@ -66,7 +93,7 @@ def create_explore_tab(notebook):
         # Reverse sort next time
         tree.heading(col, command=lambda: sort_by_column(col, not reverse))
 
-    def load_table(table_name, value=None, column=None):
+    def load_table(table_name, value=None, column=None, where_clause=None):
         """Load data from selected table with optional filtering"""
         if not table_name:
             return
@@ -102,7 +129,9 @@ def create_explore_tab(notebook):
         # Prepare query
         query = f"SELECT * FROM {table_name}"
         params = {}
-        if value and column:
+        if where_clause:
+            query += f" {where_clause}"
+        elif value and column:
             query += f" WHERE {column} = :value"
             params['value'] = value
 
@@ -112,6 +141,26 @@ def create_explore_tab(notebook):
             for row in result:
                 formatted_values = [str(val) if val is not None else "" for val in row]
                 tree.insert('', 'end', values=formatted_values)
+
+    # Create context menu
+    context_menu = Menu(tree, tearoff=0)
+    
+    def show_context_menu(event):
+        """Show context menu on right click"""
+        item = tree.identify_row(event.y)
+        if item:
+            tree.selection_set(item)
+            context_menu.post(event.x_root, event.y_root)
+
+    context_menu.add_command(
+        label="View Relations",
+        command=lambda: relation_viewer.show_relations_dialog(
+            [tree.item(item)['values'][0] for item in tree.selection()]
+        )
+    )
+
+    # Bind right click to show context menu
+    tree.bind("<Button-3>", show_context_menu)
 
     # Add breadcrumb frame below navigation
     breadcrumb_frame = ttk.Frame(frame)
