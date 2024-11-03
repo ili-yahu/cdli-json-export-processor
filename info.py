@@ -1,4 +1,4 @@
-VERSION = "beta 1.4.0"
+VERSION = "beta 1.4.1"
 LICENSE = "MIT"
 AUTHOR = "Ilī-Yahu"
 CONTACT = "ili-yahu@pm.me"
