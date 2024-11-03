@@ -3,7 +3,9 @@ from models import (
     Identification, Inscription, Publication, ArtifactPublication,
     Material, ArtifactMaterial, Language, ArtifactLanguage,
     Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource,
-    Collection, ArtifactCollection
+    Collection, ArtifactCollection, 
+    Period, ArtifactPeriod,
+    Provenience, ArtifactProvenience
 )
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
 
@@ -23,6 +25,8 @@ def process_record(session: Session, record: dict):
         process_genres(session, record, identification)
         process_external_resources(session, record, identification)
         process_collections(session, record, identification)
+        process_period(session, record, identification)
+        process_provenience(session, record, identification)
 
 def process_identification(session: Session, record: dict, root_id: int):
     """Process and return the identification record"""
@@ -173,6 +177,40 @@ def process_collections(session: Session, record: dict, identification: Identifi
         )
         session.add(artifact_collection)
 
+def process_period(session: Session, period_data: dict) -> Period:
+    """Process period data"""
+    if not period_data or 'id' not in period_data:
+        return None
+        
+    existing = session.query(Period).filter_by(id=period_data['id']).first()
+    if existing is None:
+        period = Period(
+            id=period_data['id'],
+            sequence=period_data.get('sequence'),
+            period=period_data.get('period')
+        )
+        session.add(period)
+        return period
+    return existing
+
+def process_provenience(session: Session, provenience_data: dict) -> Provenience:
+    """Process provenience data"""
+    if not provenience_data or 'id' not in provenience_data:
+        return None
+        
+    existing = session.query(Provenience).filter_by(id=provenience_data['id']).first()
+    if existing is None:
+        provenience = Provenience(
+            id=provenience_data['id'],
+            provenience=provenience_data.get('provenience'),
+            location_id=provenience_data.get('location_id'),
+            place_id=provenience_data.get('place_id'),
+            region_id=provenience_data.get('region_id')
+        )
+        session.add(provenience)
+        return provenience
+    return existing
+
 def get_or_create_language(session: Session, language_data: dict) -> Language:
     """Get existing language or create new one"""
     existing = session.query(Language).filter_by(id=language_data.get('id')).first()
@@ -250,3 +288,31 @@ def update_existing_inscription(existing: Inscription, inscription_data: dict):
     existing.raw_atf = raw_atf
     existing.cleaned_transliteration = extract_cleaned_transliteration(raw_atf)
     existing.existing_translation = extract_existing_translation(raw_atf)
+
+def get_or_create_period(session: Session, period_data: dict) -> Period:
+    """Get existing period or create new one"""
+    existing = session.query(Period).filter_by(id=period_data.get('id')).first()
+    if existing is None:
+        period = Period(
+            id=period_data.get('id'),
+            sequence=period_data.get('sequence'),
+            period=period_data.get('period')
+        )
+        session.add(period)
+        return period
+    return existing
+
+def get_or_create_provenience(session: Session, provenience_data: dict) -> Provenience:
+    """Get existing provenience or create new one"""
+    existing = session.query(Provenience).filter_by(id=provenience_data.get('id')).first()
+    if existing is None:
+        provenience = Provenience(
+            id=provenience_data.get('id'),
+            provenience=provenience_data.get('provenience'),
+            location_id=provenience_data.get('location_id'),
+            place_id=provenience_data.get('place_id'),
+            region_id=provenience_data.get('region_id')
+        )
+        session.add(provenience)
+        return provenience
+    return existing

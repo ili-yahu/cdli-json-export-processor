@@ -28,6 +28,8 @@ class Identification(Base):
     genres = relationship("ArtifactGenre", back_populates="identification")
     external_resources = relationship("ArtifactExternalResource", back_populates="identification")
     collections = relationship("ArtifactCollection", back_populates="identification")
+    periods = relationship("ArtifactPeriod", back_populates="identification")
+    proveniences = relationship("ArtifactProvenience", back_populates="identification")
 
 # Inscription Model
 class Inscription(Base):
@@ -201,3 +203,51 @@ class ArtifactCollection(Base):
     # Relationships
     identification = relationship("Identification", back_populates="collections")
     collection = relationship("Collection", back_populates="artifact_collections")
+
+# Period Model
+class Period(Base):
+    __tablename__ = 'periods'
+
+    id = Column(Integer, primary_key=True)
+    sequence = Column(Integer, nullable=True)
+    period = Column(String, nullable=False)  # Period name (e.g., "Old Babylonian")
+
+    # Relationship
+    artifact_periods = relationship("ArtifactPeriod", back_populates="period")
+
+# Association table for artifact-period relationship
+class ArtifactPeriod(Base):
+    __tablename__ = 'artifact_periods'
+
+    id = Column(Integer, primary_key=True)
+    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
+    period_id = Column(Integer, ForeignKey('periods.id'))
+
+    # Relationships
+    identification = relationship("Identification", back_populates="periods")
+    period = relationship("Period", back_populates="artifact_periods")
+
+# Provenience Model
+class Provenience(Base):
+    __tablename__ = 'proveniences'
+
+    id = Column(Integer, primary_key=True)
+    provenience = Column(String, nullable=True)  # Place name
+    location_id = Column(Integer, nullable=True)
+    place_id = Column(Integer, nullable=True)
+    region_id = Column(Integer, nullable=True)
+
+    # Relationship
+    artifact_proveniences = relationship("ArtifactProvenience", back_populates="provenience")
+
+# Association table for artifact-provenience relationship
+class ArtifactProvenience(Base):
+    __tablename__ = 'artifact_proveniences'
+
+    id = Column(Integer, primary_key=True)
+    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
+    provenience_id = Column(Integer, ForeignKey('proveniences.id'))
+
+    # Relationships
+    identification = relationship("Identification", back_populates="proveniences")
+    provenience = relationship("Provenience", back_populates="artifact_proveniences")

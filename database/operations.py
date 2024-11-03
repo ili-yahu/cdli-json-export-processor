@@ -10,6 +10,8 @@ from models import Base, Identification, Inscription, Publication, ArtifactPubli
 from models import Material, ArtifactMaterial, Language, ArtifactLanguage
 from models import Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource
 from models import Collection, ArtifactCollection
+from models import Period, ArtifactPeriod
+from models import Provenience, ArtifactProvenience
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
 
 # Set up logging
@@ -121,7 +123,6 @@ def process_record(session, record):
         return
 
     root_id = record['id']
-    
     # Process Identification
     identification = process_identification(session, record, root_id)
     
@@ -147,6 +148,12 @@ def process_record(session, record):
     
     if isinstance(record.get('collections', []), list):
         process_collections(session, record['collections'], identification)
+
+    if 'period' in record and record['period']:
+        process_period(session, [{'period': record['period']}], identification)
+
+    if 'provenience' in record and record['provenience']:
+        process_provenience(session, [{'provenience': record['provenience']}], identification)
 
 def process_identification(session, record, root_id):
     """Process and return identification record"""
@@ -331,3 +338,49 @@ def process_collections(session, collections_data, identification):
             collection_id=collection.id
         )
         session.add(artifact_collection)
+
+def process_period(session, periods_data, identification):
+    """Process period data"""
+    for per in periods_data:
+        per_data = per.get('period', {})
+        existing = session.query(Period).filter_by(id=per_data.get('id')).first()
+
+        if existing is None:
+            period = Period(
+                id=per_data.get('id'),
+                sequence=per_data.get('sequence'),
+                period=per_data.get('period')
+            )
+            session.add(period)
+        else:
+            period = existing
+
+        artifact_period = ArtifactPeriod(
+            artifact_id=identification.root_id,
+            period_id=period.id
+        )
+        session.add(artifact_period)
+
+def process_provenience(session, proveniences_data, identification):
+    """Process provenience data"""
+    for prov in proveniences_data:
+        prov_data = prov.get('provenience', {})
+        existing = session.query(Provenience).filter_by(id=prov_data.get('id')).first()
+
+        if existing is None:
+            provenience = Provenience(
+                id=prov_data.get('id'),
+                provenience=prov_data.get('provenience'),
+                location_id=prov_data.get('location_id'),
+                place_id=prov_data.get('place_id'),
+                region_id=prov_data.get('region_id')
+            )
+            session.add(provenience)
+        else:
+            provenience = existing
+
+        artifact_provenience = ArtifactProvenience(
+            artifact_id=identification.root_id,
+            provenience_id=provenience.id
+        )
+        session.add(artifact_provenience)
