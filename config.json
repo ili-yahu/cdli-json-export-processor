@@ -1,1 +1,1 @@
-{"database_path": "D:/Obsidian_Vaults/These/Code/database_manager/complete_db.db", "logging_enabled": false, "breadcrumb_enabled": false, "default_table": "identification"}
+{"database_path": "D:/Obsidian_Vaults/These/Code/database_manager/complete_db.db", "logging_enabled": false, "breadcrumb_enabled": true, "default_table": "identification"}
