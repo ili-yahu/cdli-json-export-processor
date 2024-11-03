@@ -1,10 +1,31 @@
 import json
+import os  # Add this import
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from .config_manager import load_config, save_config
 
 # Global variables
 database_path = None
 cleaned_data = []
+db_path_update_callbacks = []  # List of callbacks to execute when path changes
+
+def register_db_path_callback(callback):
+    """Register a callback to be called when database path changes"""
+    global db_path_update_callbacks
+    if callback not in db_path_update_callbacks:
+        db_path_update_callbacks.append(callback)
+
+def notify_db_path_change():
+    """Notify all registered callbacks about database path change"""
+    global db_path_update_callbacks
+    for callback in db_path_update_callbacks:
+        callback()
+
+def reset_database_path():
+    """Reset the database path to None"""
+    global database_path
+    database_path = None
+    notify_db_path_change()
 
 def select_and_clean_files(listbox: tk.Listbox):
     """Select and clean JSON files"""
@@ -65,21 +86,49 @@ def select_database():
     """Select or create database file and return the path"""
     global database_path
     
-    database_path = filedialog.asksaveasfilename(
+    path = filedialog.asksaveasfilename(
         defaultextension=".db",
         filetypes=[("SQLite Database", "*.db")],
         title="Select or Create Database"
     )
     
-    if database_path and database_path.endswith('.db'):
+    if path and path.endswith('.db'):
+        database_path = path
+        
+        # Save to config
+        config = load_config()
+        config['database_path'] = path
+        save_config(config)
+        
+        # Notify callbacks about the change
+        notify_db_path_change()
+        
         messagebox.showinfo("Database Selected", 
-                          f"Database file selected: {database_path}")
-        return database_path
+                          f"Database file selected: {path}")
+        return path
     else:
         database_path = None
+            
+        # Clear from config
+        config = load_config()
+        config['database_path'] = None
+        save_config(config)
+        
+        # Notify callbacks about the change
+        notify_db_path_change()
+        
         messagebox.showerror("Invalid Selection", 
                            "Please select a valid .db file.")
         return None
+
+def check_database():
+    """Check if database is selected and return path"""
+    global database_path
+    if not database_path:
+        messagebox.showerror("No Database", 
+                           "Please select a database first from the Home tab.")
+        return None
+    return database_path
 
 def get_database_path():
     """Get the currently selected database path"""
@@ -133,3 +182,18 @@ def format_json_lines(lines: list) -> str:
         else:
             json_lines.append(line)
     return '\n'.join(json_lines)
+
+def init_database_path():
+    """Initialize database path from config"""
+    global database_path
+    config = load_config()
+    saved_path = config.get('database_path')
+    
+    if saved_path and os.path.exists(saved_path):
+        database_path = saved_path
+    else:
+        database_path = None
+        
+    # Always notify callbacks, even if path is None
+    notify_db_path_change()
+    return database_path

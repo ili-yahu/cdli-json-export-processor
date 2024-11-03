@@ -1,49 +1,91 @@
+import os
 import tkinter as tk
-from tkinter import ttk, Listbox, messagebox
-from utils.file_handler import select_and_clean_files, select_database, get_database_path, get_cleaned_data
-from database.operations import send_to_database
-
-class HomeTab:
-    def __init__(self, notebook):
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='Home')
-        
-        # Title
-        title_label = tk.Label(self.frame, text="Home page", 
-                             font=("Arial", 20, "bold"), fg="black")
-        title_label.pack(pady=5, anchor="w")
-
-        # File selection button
-        select_files_button = tk.Button(self.frame, text="Select JSON Files", 
-                                      command=lambda: select_and_clean_files(self.file_listbox))
-        select_files_button.pack(ipady=2, ipadx=5)
-
-        # File listbox
-        self.file_listbox = Listbox(self.frame, selectmode=tk.MULTIPLE)
-        self.file_listbox.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
-
-        # Database buttons
-        database_button = tk.Button(self.frame, text="Select/Create Database", 
-                                  command=select_database)
-        database_button.pack(side="left", fill=tk.BOTH, ipady=10, ipadx=5, padx=5)
-
-        send_button = tk.Button(self.frame, text="Send to SQLite", 
-                              command=self.handle_send_to_database)
-        send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5, padx=5)
-
-    def handle_send_to_database(self):
-        db_path = get_database_path()
-        if not db_path:
-            messagebox.showerror("No Database", "Please select or create a database first!")
-            return
-        
-        cleaned_data = get_cleaned_data()
-        if not cleaned_data:
-            messagebox.showerror("No Data", "No valid JSON data to send to the database.")
-            return
-        
-        send_to_database(self.frame, db_path, cleaned_data)
+from tkinter import ttk, messagebox
+from utils.file_handler import (select_database, init_database_path, 
+                              notify_db_path_change, get_database_path,
+                              register_db_path_callback, reset_database_path)
+from utils.config_manager import load_config, save_config
 
 def create_home_tab(notebook):
     """Create and return the home tab"""
-    return HomeTab(notebook)
+    frame = ttk.Frame(notebook)
+    notebook.add(frame, text='Home')
+    
+    # Title
+    title_label = tk.Label(frame, text="Database Manager", 
+                          font=("Arial", 20, "bold"), fg="black")
+    title_label.pack(pady=20, anchor="w")
+
+    # Welcome message
+    welcome_text = tk.Label(
+        frame,
+        text="Welcome to the Database Manager.\n\n" +
+             "To get started:\n" +
+             "1. Use the buttons below to select, create, or reset your database\n" +
+             "2. Use the Import tab to load and process JSON files from the CDLI\n" +
+             "3. Configure logging and other options in the Options tab\n" +
+             "4. Check the Help tab for detailed instructions",
+        justify=tk.LEFT,
+        font=("Arial", 12),
+        wraplength=500
+    )
+    welcome_text.pack(pady=20, padx=20, anchor="w")
+
+    # Create a frame for database buttons
+    db_buttons_frame = ttk.Frame(frame)
+    db_buttons_frame.pack(pady=20)
+
+    # Database selection button
+    database_button = tk.Button(
+        db_buttons_frame, 
+        text="Select/Create Database",
+        command=select_database,
+        font=("Arial", 12)
+    )
+    database_button.pack(side=tk.LEFT, padx=5)
+
+    # Reset database button
+    def reset_database():
+        """Reset database selection"""
+        if messagebox.askyesno("Confirm Reset", "Are you sure you want to reset the database selection?"):
+            config = load_config()
+            config['database_path'] = None
+            save_config(config)
+            reset_database_path()  # Use the new function
+            messagebox.showinfo("Success", "Database selection has been reset.")
+
+    reset_button = tk.Button(
+        db_buttons_frame,
+        text="Reset Selection",
+        command=reset_database,
+        font=("Arial", 12)
+    )
+    reset_button.pack(side=tk.LEFT, padx=5)
+
+    # Add database name display
+    db_path_var = tk.StringVar(value="No database selected")
+    db_name_label = tk.Label(
+        frame,
+        textvariable=db_path_var,
+        font=("Arial", 12),
+        fg="gray"
+    )
+    db_name_label.pack(pady=10)
+
+    def update_db_display():
+        """Update database display"""
+        current_path = get_database_path()
+        if current_path and os.path.exists(current_path):
+            db_path_var.set(f"Selected database: {os.path.basename(current_path)}")
+        else:
+            db_path_var.set("No database selected")
+        frame.update_idletasks()
+
+    # Register for database path updates
+    register_db_path_callback(update_db_display)
+    
+    # Initialize database path and force initial display update
+    init_database_path()
+    update_db_display()
+
+    return frame
