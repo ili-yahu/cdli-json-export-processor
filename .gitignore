@@ -2,4 +2,5 @@ sample_json_files/
 __pycache__/
 *.db
 *.db-journal
+config.json
 logs/

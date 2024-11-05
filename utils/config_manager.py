@@ -4,7 +4,9 @@ import os
 CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
     "database_path": None,
-    "logging_enabled": False
+    "logging_enabled": False,
+    "breadcrumb_enabled": True, 
+    "default_table": "identification"
 }
 
 def load_config():
