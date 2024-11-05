@@ -4,7 +4,7 @@ import logging
 import os
 import sqlalchemy as sa
 from sqlalchemy import inspect
-from utils.config_manager import load_config, save_config
+from utils.config_manager import load_config, save_config, DEFAULT_CONFIG
 from utils.file_handler import init_database_path, get_database_path, register_db_path_callback
 
 class OptionsTab:
@@ -136,11 +136,7 @@ class OptionsTab:
         """Reset all configuration to defaults"""
         if messagebox.askyesno("Confirm Reset", 
                              "Are you sure you want to reset all settings to default?"):
-            config = {
-                'database_path': None,
-                'logging_enabled': False
-            }
-            save_config(config)
+            save_config(DEFAULT_CONFIG.copy())
             self.disable_logging()
             database_name_var = tk.StringVar(value="No database selected")
             messagebox.showinfo("Success", "All settings have been reset to default.")
