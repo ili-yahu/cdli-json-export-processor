@@ -21,31 +21,6 @@ class OptionsTab:
         explore_frame = ttk.LabelFrame(self.frame, text="Explore Options")
         explore_frame.pack(pady=10, padx=20, fill=tk.X)
 
-        # Default table selection
-        default_table_frame = ttk.Frame(explore_frame)
-        default_table_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        table_label = ttk.Label(default_table_frame, text="Default Table:")
-        table_label.pack(side=tk.LEFT, padx=5)
-        
-        config = load_config()
-        default_table_var = tk.StringVar(value=config.get('default_table', 'identification'))
-        table_combo = ttk.Combobox(default_table_frame, textvariable=default_table_var)
-        table_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-
-        # Breadcrumb toggle
-        breadcrumb_frame = ttk.Frame(explore_frame)
-        breadcrumb_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        breadcrumb_var = tk.BooleanVar(value=config.get('breadcrumb_enabled', True))
-        breadcrumb_check = ttk.Checkbutton(
-            breadcrumb_frame,
-            text="Enable breadcrumb navigation",
-            variable=breadcrumb_var,
-            command=lambda: save_config({**config, 'breadcrumb_enabled': breadcrumb_var.get()})
-        )
-        breadcrumb_check.pack(anchor='w', padx=5)
-
         # Logging section (right after explore options)
         log_frame = ttk.LabelFrame(self.frame, text="Logging Options")
         log_frame.pack(pady=10, padx=20, fill=tk.X)  # Removed side=tk.BOTTOM
@@ -80,26 +55,6 @@ class OptionsTab:
             font=("Arial", 12)
         )
         reset_button.pack(side=tk.BOTTOM, pady=20)
-
-        def update_table_list(*args):
-            """Update available tables in combobox"""
-            db_path = get_database_path()
-            if db_path:
-                engine = sa.create_engine(f'sqlite:///{db_path}')
-                inspector = inspect(engine)
-                tables = inspector.get_table_names()
-                table_combo['values'] = tables
-                if default_table_var.get() not in tables:
-                    default_table_var.set('identification')
-
-        def save_default_table(*args):
-            """Save default table setting"""
-            config['default_table'] = default_table_var.get()
-            save_config(config)
-
-        table_combo.bind('<<ComboboxSelected>>', save_default_table)
-        register_db_path_callback(update_table_list)
-        update_table_list()
 
         # Initialize logging status from config
         config = load_config()
