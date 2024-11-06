@@ -8,10 +8,9 @@ class Logger:
     _instance = None
 
     def __init__(self):
-        """Initialize singleton logger"""
-        self._logger = self._setup_logger()
+        Logger._instance = self._setup_logger()  # Store logger in class variable
 
-    def _setup_logger(self, name: str = 'application', log_level=logging.INFO) -> logging.Logger:
+    def _setup_logger(self, name: str = 'cdli-json-export-processor-app', log_level=logging.INFO) -> logging.Logger:
         """Enhanced logger setup that respects config settings"""
         # Check config first
         config = load_config()
@@ -53,15 +52,9 @@ class Logger:
 
     @classmethod
     def get_logger(cls):
-        """Get or create logger instance"""
         if cls._instance is None:
-            cls._instance = Logger()
-        return cls._instance._logger
+            Logger()  # Creates instance and sets _instance
+        return cls._instance
 
 # Create singleton instance
 logger = Logger.get_logger()
-
-# No need for setup_logger function anymore as we use the singleton
-def get_logger():
-    """Get the singleton logger instance"""
-    return logger

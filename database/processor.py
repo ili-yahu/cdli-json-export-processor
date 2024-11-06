@@ -3,8 +3,6 @@ from tkinter import ttk, messagebox
 import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.declarative import DeclarativeMeta
-import logging
 from datetime import datetime
 from database.tables_config import Base, Identification, Inscription, Publication, ArtifactPublication
 from database.tables_config import Material, ArtifactMaterial, Language, ArtifactLanguage
