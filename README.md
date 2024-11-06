@@ -1,10 +1,10 @@
 ---
-date-modified: 2024-11-06T18:18:17+01:00
+date-modified: 2024-11-06T18:23:49+01:00
 date-created: 2024-10-22T11:01:39+02:00
 ---
 ![License](https://img.shields.io/badge/license-MIT-red)
 ![Platform](https://img.shields.io/badge/platform-Windows--MacOS--Linux-lightgrey)
-![Version](https://img.shields.io/badge/pre--release-1.2.1-blue)
+![Version](https://img.shields.io/badge/pre--release-1.3.0-blue)
 ![Date](https://img.shields.io/badge/date-2024--11--06-lightblue)
 ![Author](https://img.shields.io/badge/author-Il%C4%AB--yahu-green)
 [![Contact](https://img.shields.io/badge/contact-Ili--Yahu@pm.me-lightgreen)](mailto:Ili-Yahu@pm.me)

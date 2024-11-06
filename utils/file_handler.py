@@ -14,6 +14,7 @@ class FileHandler:
         self.database_path: Optional[str] = None
         self.cleaned_data: List[dict] = []
         self.db_path_callbacks: List[Callable] = []
+        self.file_data_map: dict = {}
         logger.info("FileHandler initialized")
 
     def register_db_path_callback(self, callback: Callable) -> None:
@@ -168,18 +169,38 @@ class FileHandler:
             raise
 
     def _add_to_cleaned_data(self, data: List[dict], file_path: str, listbox: tk.Listbox) -> None:
-        """
-        Add processed data to cleaned_data list and update UI
-        
-        Args:
-            data: List of JSON objects
-            file_path: Original file path
-            listbox: Tkinter Listbox widget to update
-        """
         filename = os.path.basename(file_path)
+        start_idx = len(self.cleaned_data)
         self.cleaned_data.extend(data)
+        # Store mapping of filename to data indices
+        self.file_data_map[filename] = {
+            'start': start_idx,
+            'count': len(data)
+        }
         listbox.insert(tk.END, f"{filename} ({len(data)} records)")
         logger.debug(f"Successfully processed {len(data)} records from: {filename}")
+
+    def remove_selected_files(self, listbox: tk.Listbox) -> None:
+        """Remove selected files from listbox and cleaned_data"""
+        selected_indices = listbox.curselection()
+        if not selected_indices:
+            return
+
+        # Process in reverse to avoid index shifting
+        for idx in sorted(selected_indices, reverse=True):
+            filename = listbox.get(idx).split(" (")[0]
+            if filename in self.file_data_map:
+                file_info = self.file_data_map[filename]
+                # Remove data from cleaned_data
+                del self.cleaned_data[file_info['start']:file_info['start'] + file_info['count']]
+                # Update indices for remaining files
+                for fname, info in self.file_data_map.items():
+                    if info['start'] > file_info['start']:
+                        info['start'] -= file_info['count']
+                del self.file_data_map[filename]
+            listbox.delete(idx)
+        
+        logger.info(f"Removed {len(selected_indices)} files from selection")
 
     def get_cleaned_data(self) -> List[dict]:
         """Get the cleaned data"""

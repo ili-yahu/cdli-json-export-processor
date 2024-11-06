@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, Listbox, Frame
-from utils.file_handler import select_and_clean_files, get_cleaned_data, check_database
+from utils.file_handler import select_and_clean_files, get_cleaned_data, check_database, file_handler
 from database.processor import send_to_database
 
 def create_import_tab(notebook):
@@ -22,10 +22,19 @@ def create_import_tab(notebook):
     file_listbox = Listbox(frame, selectmode=tk.MULTIPLE)
     file_listbox.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
 
+    # Button frame for file operations
+    button_frame = Frame(frame)
+    button_frame.pack(fill=tk.X, padx=5)
+
+    # Delete selected files button
+    delete_button = tk.Button(button_frame, text="Remove Selected Files",
+                            command=lambda: file_handler.remove_selected_files(file_listbox))
+    delete_button.pack(side="left", ipady=2, ipadx=5)
+
     # Import button
-    send_button = tk.Button(frame, text="Send to SQLite", 
+    send_button = tk.Button(button_frame, text="Send to SQLite", 
                           command=lambda: handle_send_to_database(frame))
-    send_button.pack(side="right", fill=tk.BOTH, ipady=10, ipadx=5, padx=5)
+    send_button.pack(side="right", ipady=2, ipadx=5)
 
     return frame
 

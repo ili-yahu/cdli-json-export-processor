@@ -1,4 +1,4 @@
-VERSION = "pre-release 1.2.1"
+VERSION = "pre-release 1.3.0"
 LICENSE = "MIT"
 AUTHOR = "Ilī-Yahu"
 CONTACT = "Ili-Yahu@pm.me"
