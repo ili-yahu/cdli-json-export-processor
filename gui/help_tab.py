@@ -32,6 +32,8 @@ class HelpTab:
             
             "Note: The database import process may take a few minutes depending on the "
             "size of your files. You can track the progress in the Import tab."
+            "Please note that the window can sometimes freeze when importing massive files."
+            "The freeze has no impact on the final result."
         )
         
         # Scrolled text widget for help content
