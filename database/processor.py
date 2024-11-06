@@ -13,6 +13,7 @@ from models import Period, ArtifactPeriod
 from models import Provenience, ArtifactProvenience
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
 from utils.logger import logger
+from ui.progress_tracker import ProgressTracker
 
 def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
     """Send cleaned data to SQLite database with progress tracking"""
@@ -22,34 +23,15 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
     logger.info(f"Starting database operation with {len(cleaned_data)} records")
     logger.info(f"Database path: {database_path}")
 
+    progress_tracker = None
     try:
         engine = create_engine(f'sqlite:///{database_path}')
         Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine)
 
-        # Create progress tracking widgets
-        progress_frame = tk.Frame(frame)
-        progress_frame.pack(side="bottom", fill=tk.BOTH)
-
-        progress_bar = ttk.Progressbar(
-            progress_frame, 
-            orient="horizontal", 
-            length=300, 
-            mode="determinate"
-        )
-        progress_bar.pack(padx=10, pady=10)
-
-        time_label = tk.Label(
-            progress_frame, 
-            text="Estimated Time: Calculating...", 
-            bg='white'
-        )
-        time_label.pack(padx=10, pady=5)
-
-        start_time = time.time()
         total_records = len(cleaned_data)
-        progress_bar["maximum"] = total_records
+        progress_tracker = ProgressTracker(frame, total_records)
 
         try:
             with Session() as session:
@@ -64,20 +46,7 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
                             logger.error(f"Record ID: {record['id']}")
                         continue
 
-                    # Update progress
-                    progress_bar["value"] = idx
-                    frame.update_idletasks()
-
-                    # Update time estimate
-                    elapsed_time = time.time() - start_time
-                    avg_time_per_record = elapsed_time / idx
-                    remaining_records = total_records - idx
-                    est_time_remaining = avg_time_per_record * remaining_records
-                    
-                    minutes, seconds = divmod(est_time_remaining, 60)
-                    time_label.config(
-                        text=f"Estimated Time: {int(minutes)}m {int(seconds)}s remaining"
-                    )
+                    progress_tracker.update(idx, total_records)
 
                 session.commit()
                 logger.info("Database operation completed successfully")
@@ -97,8 +66,8 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
                            "An error occurred. Check logs for details.")
     finally:
         logger.info("Database operation finished")
-        if 'progress_frame' in locals():
-            progress_frame.destroy()
+        if progress_tracker:
+            progress_tracker.destroy()
 
 def process_record(session, record):
     """Process a single record for database insertion"""
