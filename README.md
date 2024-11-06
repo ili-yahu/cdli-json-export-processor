@@ -1,15 +1,9 @@
----
-aliases: CDLI JSON export processor
-license: MIT
-date: 2024-11-06
-version: pre-release 1.0.0
-author: Ilī-Yahu
-contact: ili-yahu@pm.me
----
-![Version](https://img.shields.io/badge/pre--release-1.0.0-blue
-)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Platforme](https://img.shields.io/badge/platform-Windows-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-red)
+![Platform](https://img.shields.io/badge/platform-Windows--MacOS--Linux-lightgrey)
+![Version](https://img.shields.io/badge/pre--release-1.0.0-blue)
+![Date](https://img.shields.io/badge/date-2024--11--06-lightblue)
+![Author](https://img.shields.io/badge/author-Il%C4%AB--yahu-green)
+[![Contact](https://img.shields.io/badge/contact-Ili--Yahu@pm.me-lightgreen)](mailto:Ili-Yahu@pm.me)
 
 # Presentation
 This application processes `.json` files extracted from the CDLI (Cuneiform Digital Library Initiative) and transfers the data to a SQLite database. The main goal is to provide a user-friendly interface to automatically clean up and process the data from the CDLI.
