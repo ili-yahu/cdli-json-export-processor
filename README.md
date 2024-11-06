@@ -1,7 +1,3 @@
----
-date-modified: 2024-11-06T18:23:49+01:00
-date-created: 2024-10-22T11:01:39+02:00
----
 ![License](https://img.shields.io/badge/license-MIT-red)
 ![Platform](https://img.shields.io/badge/platform-Windows--MacOS--Linux-lightgrey)
 ![Version](https://img.shields.io/badge/pre--release-1.3.0-blue)
