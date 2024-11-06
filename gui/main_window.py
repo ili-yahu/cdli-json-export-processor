@@ -10,7 +10,7 @@ def create_main_window():
     """Create and configure the main application window"""
     root = tk.Tk()
     root.configure(bg='white')
-    root.title("Database manager")
+    root.title("CDLI JSON Export Processor")
 
     # Center the window on the screen
     window_width = 600

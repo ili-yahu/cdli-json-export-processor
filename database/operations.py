@@ -5,7 +5,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import logging
 from datetime import datetime
-import os
 from models import Base, Identification, Inscription, Publication, ArtifactPublication
 from models import Material, ArtifactMaterial, Language, ArtifactLanguage
 from models import Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource
@@ -13,26 +12,15 @@ from models import Collection, ArtifactCollection
 from models import Period, ArtifactPeriod
 from models import Provenience, ArtifactProvenience
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
-
-# Set up logging
-log_dir = "logs"
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-
-logging.basicConfig(
-    filename=f"logs/database_operations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+from utils.logger import logger
 
 def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
     """Send cleaned data to SQLite database with progress tracking"""
     if not database_path or not cleaned_data:
         return
 
-    if logging.getLogger().hasHandlers():
-        logging.info(f"Starting database operation with {len(cleaned_data)} records")
-        logging.info(f"Database path: {database_path}")
+    logger.info(f"Starting database operation with {len(cleaned_data)} records")
+    logger.info(f"Database path: {database_path}")
 
     try:
         engine = create_engine(f'sqlite:///{database_path}')
@@ -68,14 +56,12 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
                 for idx, record in enumerate(cleaned_data, 1):
                     try:
                         process_record(session, record)
-                        if logging.getLogger().hasHandlers():
-                            logging.info(f"Processed record {idx}/{total_records}")
+                        logger.info(f"Processed record {idx}/{total_records}")
                     except Exception as record_error:
-                        if logging.getLogger().hasHandlers():
-                            error_msg = f"Error processing record {idx}: {str(record_error)}"
-                            logging.error(error_msg)
+                        error_msg = f"Error processing record {idx}: {str(record_error)}"
+                        logger.error(error_msg)
                         if 'id' in record:
-                            logging.error(f"Record ID: {record['id']}")
+                            logger.error(f"Record ID: {record['id']}")
                         continue
 
                     # Update progress
@@ -94,7 +80,7 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
                     )
 
                 session.commit()
-                logging.info("Database operation completed successfully")
+                logger.info("Database operation completed successfully")
                 messagebox.showinfo(
                     "Success", 
                     "Data successfully inserted into the SQLite database."
@@ -102,18 +88,15 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
 
         except Exception as session_error:
             error_msg = f"Session error: {str(session_error)}"
-            logging.error(error_msg)
+            logger.error(error_msg)
             messagebox.showerror("Error", error_msg)
             
     except Exception as e:
-        error_msg = f"Database operation failed: {str(e)}"
-        logging.error(error_msg)
-        messagebox.showerror(
-            "Error", 
-            f"An error occurred. Check logs in /logs directory for details."
-        )
+        logger.error(f"Database operation failed: {str(e)}", exc_info=True)
+        messagebox.showerror("Error", 
+                           "An error occurred. Check logs for details.")
     finally:
-        logging.info("Database operation finished")
+        logger.info("Database operation finished")
         if 'progress_frame' in locals():
             progress_frame.destroy()
 

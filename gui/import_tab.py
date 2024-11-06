@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, Listbox
+from tkinter import ttk, Listbox, Frame
 from utils.file_handler import select_and_clean_files, get_cleaned_data, check_database
 from database.operations import send_to_database
 
