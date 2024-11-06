@@ -1,6 +1,6 @@
 ![License](https://img.shields.io/badge/license-MIT-red)
 ![Platform](https://img.shields.io/badge/platform-Windows--MacOS--Linux-lightgrey)
-![Version](https://img.shields.io/badge/pre--release-1.0.0-blue)
+![Version](https://img.shields.io/badge/pre--release-1.1.1-blue)
 ![Date](https://img.shields.io/badge/date-2024--11--06-lightblue)
 ![Author](https://img.shields.io/badge/author-Il%C4%AB--yahu-green)
 [![Contact](https://img.shields.io/badge/contact-Ili--Yahu@pm.me-lightgreen)](mailto:Ili-Yahu@pm.me)
@@ -43,16 +43,17 @@ cdli-json-export-processor/
 │   ├── import_tab.py
 │   ├── main_window.py
 │   └── options_tab.py
-├── logs/            # Log files
-├── utils/           # Utility functions
+├── logs/ # Log files
+├── utils/ # Utility functions
+│   ├── config_manager.py
 │   ├── file_handler.py
-│   ├── text_cleaner.py
-│   └── config_manager.py
+│   ├── logger.py
+│   └── text_cleaner.py
 ├── config.json # Configuration file
 ├── info.py # Version info
 ├── main.py # Entry point
 ├── models.py # Database models
-├──  README.md # Readme file
+├── README.md # Readme file
 └── requirements.txt # Requirements file
 ```
 ## Usage

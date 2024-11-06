@@ -1,36 +1,147 @@
-from sqlalchemy.orm import Session
-from models import (
-    Identification, Inscription, Publication, ArtifactPublication,
-    Material, ArtifactMaterial, Language, ArtifactLanguage,
-    Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource,
-    Collection, ArtifactCollection, 
-    Period, ArtifactPeriod,
-    Provenience, ArtifactProvenience
-)
+import tkinter as tk
+from tkinter import ttk, messagebox
+import time
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import logging
+from datetime import datetime
+from models import Base, Identification, Inscription, Publication, ArtifactPublication
+from models import Material, ArtifactMaterial, Language, ArtifactLanguage
+from models import Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource
+from models import Collection, ArtifactCollection
+from models import Period, ArtifactPeriod
+from models import Provenience, ArtifactProvenience
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
+from utils.logger import logger
 
-def process_record(session: Session, record: dict):
-    """Process a single record and add it to the database"""
+def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
+    """Send cleaned data to SQLite database with progress tracking"""
+    if not database_path or not cleaned_data:
+        return
+
+    logger.info(f"Starting database operation with {len(cleaned_data)} records")
+    logger.info(f"Database path: {database_path}")
+
+    try:
+        engine = create_engine(f'sqlite:///{database_path}')
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(bind=engine)
+
+        # Create progress tracking widgets
+        progress_frame = tk.Frame(frame)
+        progress_frame.pack(side="bottom", fill=tk.BOTH)
+
+        progress_bar = ttk.Progressbar(
+            progress_frame, 
+            orient="horizontal", 
+            length=300, 
+            mode="determinate"
+        )
+        progress_bar.pack(padx=10, pady=10)
+
+        time_label = tk.Label(
+            progress_frame, 
+            text="Estimated Time: Calculating...", 
+            bg='white'
+        )
+        time_label.pack(padx=10, pady=5)
+
+        start_time = time.time()
+        total_records = len(cleaned_data)
+        progress_bar["maximum"] = total_records
+
+        try:
+            with Session() as session:
+                for idx, record in enumerate(cleaned_data, 1):
+                    try:
+                        process_record(session, record)
+                        logger.info(f"Processed record {idx}/{total_records}")
+                    except Exception as record_error:
+                        error_msg = f"Error processing record {idx}: {str(record_error)}"
+                        logger.error(error_msg)
+                        if 'id' in record:
+                            logger.error(f"Record ID: {record['id']}")
+                        continue
+
+                    # Update progress
+                    progress_bar["value"] = idx
+                    frame.update_idletasks()
+
+                    # Update time estimate
+                    elapsed_time = time.time() - start_time
+                    avg_time_per_record = elapsed_time / idx
+                    remaining_records = total_records - idx
+                    est_time_remaining = avg_time_per_record * remaining_records
+                    
+                    minutes, seconds = divmod(est_time_remaining, 60)
+                    time_label.config(
+                        text=f"Estimated Time: {int(minutes)}m {int(seconds)}s remaining"
+                    )
+
+                session.commit()
+                logger.info("Database operation completed successfully")
+                messagebox.showinfo(
+                    "Success", 
+                    "Data successfully inserted into the SQLite database."
+                )
+
+        except Exception as session_error:
+            error_msg = f"Session error: {str(session_error)}"
+            logger.error(error_msg)
+            messagebox.showerror("Error", error_msg)
+            
+    except Exception as e:
+        logger.error(f"Database operation failed: {str(e)}", exc_info=True)
+        messagebox.showerror("Error", 
+                           "An error occurred. Check logs for details.")
+    finally:
+        logger.info("Database operation finished")
+        if 'progress_frame' in locals():
+            progress_frame.destroy()
+
+def process_record(session, record):
+    """Process a single record for database insertion"""
     if 'id' not in record:
         return
 
     root_id = record['id']
+    # Process Identification
     identification = process_identification(session, record, root_id)
     
-    if identification:
-        process_inscription(session, record, identification)
-        process_publications(session, record, identification)
-        process_materials(session, record, identification)
-        process_languages(session, record, identification)
-        process_genres(session, record, identification)
-        process_external_resources(session, record, identification)
-        process_collections(session, record, identification)
-        process_period(session, record, identification)
-        process_provenience(session, record, identification)
+    # Process Inscription
+    if 'inscription' in record and record['inscription']:
+        process_inscription(session, record['inscription'], identification)
+    
+    # Process other relationships
+    if isinstance(record.get('publications', []), list):
+        process_publications(session, record['publications'], identification)
+    
+    if isinstance(record.get('materials', []), list):
+        process_materials(session, record['materials'], identification)
+    
+    if isinstance(record.get('languages', []), list):
+        process_languages(session, record['languages'], identification)
+    
+    if isinstance(record.get('genres', []), list):
+        process_genres(session, record['genres'], identification)
+    
+    if isinstance(record.get('external_resources', []), list):
+        process_external_resources(session, record['external_resources'], identification)
+    
+    if isinstance(record.get('collections', []), list):
+        process_collections(session, record['collections'], identification)
 
-def process_identification(session: Session, record: dict, root_id: int):
-    """Process and return the identification record"""
+    if 'period' in record and record['period']:
+        process_period(session, [{'period': record['period']}], identification)
+
+    if 'provenience' in record and record['provenience']:
+        process_provenience(session, [{'provenience': record['provenience']}], identification)
+
+def process_identification(session, record, root_id):
+    """Process and return identification record"""
     existing = session.query(Identification).filter_by(root_id=root_id).first()
+    
     if existing is None:
         identification = Identification(
             root_id=root_id,
@@ -49,65 +160,71 @@ def process_identification(session: Session, record: dict, root_id: int):
         return identification
     return existing
 
-def process_inscription(session: Session, record: dict, identification: Identification):
+def process_inscription(session, inscription_data, identification):
     """Process inscription data"""
-    if 'inscription' not in record or not record['inscription']:
-        return
+    if isinstance(inscription_data, dict):
+        inscription_id = inscription_data.get('id')
+        existing = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
 
-    inscription_data = record['inscription']
-    if not isinstance(inscription_data, dict):
-        return
-
-    inscription_id = inscription_data.get('id')
-    existing = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
-
-    if existing is None:
         raw_atf = inscription_data.get('atf')
-        inscription = Inscription(
-            inscription_id=inscription_id,
-            artifact_id=identification.root_id,
-            raw_atf=raw_atf,
-            cleaned_transliteration=extract_cleaned_transliteration(raw_atf),
-            existing_translation=extract_existing_translation(raw_atf),
-            personal_translation=None
-        )
-        session.add(inscription)
-    else:
-        update_existing_inscription(existing, inscription_data)
+        if existing is None:
+            inscription = Inscription(
+                inscription_id=inscription_id,
+                artifact_id=identification.root_id,
+                raw_atf=raw_atf,
+                cleaned_transliteration=extract_cleaned_transliteration(raw_atf),
+                existing_translation=extract_existing_translation(raw_atf),
+                personal_translation=None
+            )
+            session.add(inscription)
+        else:
+            existing.raw_atf = raw_atf
+            existing.cleaned_transliteration = extract_cleaned_transliteration(raw_atf)
+            existing.existing_translation = extract_existing_translation(raw_atf)
 
-def process_publications(session: Session, record: dict, identification: Identification):
-    """Process publication data"""
-    if not isinstance(record.get('publications', []), list):
-        return
+def process_publications(session, publications_data, identification):
+    """Process publications data"""
+    for pub in publications_data:
+        pub_data = pub.get('publication', {})
+        existing = session.query(Publication).filter_by(id=pub_data.get('id')).first()
 
-    for pub in record['publications']:
-        publication_data = pub.get('publication', {})
-        publication = get_or_create_publication(session, publication_data)
-        
-        artifact_publication = ArtifactPublication(
+        if existing is None:
+            publication = Publication(
+                id=pub_data.get('id'),
+                designation=pub_data.get('designation'),
+                bibtexkey=pub_data.get('bibtexkey'),
+                year=pub_data.get('year'),
+                address=pub_data.get('address'),
+                number=pub_data.get('number'),
+                publisher=pub_data.get('publisher'),
+                title=pub_data.get('title'),
+                series=pub_data.get('series')
+            )
+            session.add(publication)
+        else:
+            publication = existing
+
+        artifact_pub = ArtifactPublication(
             artifact_id=identification.root_id,
             publication_id=publication.id,
             exact_reference=pub.get('exact_reference')
         )
-        session.add(artifact_publication)
+        session.add(artifact_pub)
 
-def process_materials(session: Session, record: dict, identification: Identification):
-    """Process material data"""
-    if not isinstance(record.get('materials', []), list):
-        return
+def process_materials(session, materials_data, identification):
+    """Process materials data"""
+    for mat in materials_data:
+        mat_data = mat.get('material', {})
+        existing = session.query(Material).filter_by(id=mat_data.get('id')).first()
 
-    for mat in record['materials']:
-        material_data = mat.get('material', {})
-        existing_material = session.query(Material).filter_by(id=material_data.get('id')).first()
-
-        if existing_material is None:
+        if existing is None:
             material = Material(
-                id=material_data.get('id'),
-                material=material_data.get('material')
+                id=mat_data.get('id'),
+                material=mat_data.get('material')
             )
             session.add(material)
         else:
-            material = existing_material
+            material = existing
 
         artifact_material = ArtifactMaterial(
             artifact_id=identification.root_id,
@@ -115,30 +232,42 @@ def process_materials(session: Session, record: dict, identification: Identifica
         )
         session.add(artifact_material)
 
-def process_languages(session: Session, record: dict, identification: Identification):
-    """Process language data"""
-    if not isinstance(record.get('languages', []), list):
-        return
+def process_languages(session, languages_data, identification):
+    """Process languages data"""
+    for lang in languages_data:
+        lang_data = lang.get('language', {})
+        existing = session.query(Language).filter_by(id=lang_data.get('id')).first()
 
-    for lang in record['languages']:
-        language_data = lang.get('language', {})
-        language = get_or_create_language(session, language_data)
-        
+        if existing is None:
+            language = Language(
+                id=lang_data.get('id'),
+                language=lang_data.get('language')
+            )
+            session.add(language)
+        else:
+            language = existing
+
         artifact_language = ArtifactLanguage(
             artifact_id=identification.root_id,
             language_id=language.id
         )
         session.add(artifact_language)
 
-def process_genres(session: Session, record: dict, identification: Identification):
-    """Process genre data"""
-    if not isinstance(record.get('genres', []), list):
-        return
-
-    for gen in record['genres']:
+def process_genres(session, genres_data, identification):
+    """Process genres data"""
+    for gen in genres_data:
         genre_data = gen.get('genre', {})
-        genre = get_or_create_genre(session, genre_data)
-        
+        existing = session.query(Genre).filter_by(id=genre_data.get('id')).first()
+
+        if existing is None:
+            genre = Genre(
+                id=genre_data.get('id'),
+                genre=genre_data.get('genre')
+            )
+            session.add(genre)
+        else:
+            genre = existing
+
         artifact_genre = ArtifactGenre(
             artifact_id=identification.root_id,
             genre_id=genre.id,
@@ -146,173 +275,95 @@ def process_genres(session: Session, record: dict, identification: Identificatio
         )
         session.add(artifact_genre)
 
-def process_external_resources(session: Session, record: dict, identification: Identification):
-    """Process external resource data"""
-    if not isinstance(record.get('external_resources', []), list):
-        return
+def process_external_resources(session, resources_data, identification):
+    """Process external resources data"""
+    for res in resources_data:
+        res_data = res.get('external_resource', {})
+        existing = session.query(ExternalResource).filter_by(id=res_data.get('id')).first()
 
-    for ext_res in record['external_resources']:
-        ext_res_data = ext_res.get('external_resource', {})
-        external_resource = get_or_create_external_resource(session, ext_res_data)
-        
-        artifact_ext_res = ArtifactExternalResource(
+        if existing is None:
+            resource = ExternalResource(
+                id=res_data.get('id'),
+                external_resource=res_data.get('external_resource'),
+                base_url=res_data.get('base_url'),
+                project_url=res_data.get('project_url'),
+                abbrev=res_data.get('abbrev')
+            )
+            session.add(resource)
+        else:
+            resource = existing
+
+        artifact_resource = ArtifactExternalResource(
             artifact_id=identification.root_id,
-            external_resource_id=external_resource.id,
-            external_resource_key=ext_res.get('external_resource_key')
+            external_resource_id=resource.id,
+            external_resource_key=res.get('external_resource_key')
         )
-        session.add(artifact_ext_res)
+        session.add(artifact_resource)
 
-def process_collections(session: Session, record: dict, identification: Identification):
-    """Process collection data"""
-    if not isinstance(record.get('collections', []), list):
-        return
+def process_collections(session, collections_data, identification):
+    """Process collections data"""
+    for coll in collections_data:
+        coll_data = coll.get('collection', {})
+        existing = session.query(Collection).filter_by(id=coll_data.get('id')).first()
 
-    for coll in record['collections']:
-        collection_data = coll.get('collection', {})
-        collection = get_or_create_collection(session, collection_data)
-        
+        if existing is None:
+            collection = Collection(
+                id=coll_data.get('id'),
+                collection=coll_data.get('collection'),
+                collection_url=coll_data.get('collection_url')
+            )
+            session.add(collection)
+        else:
+            collection = existing
+
         artifact_collection = ArtifactCollection(
             artifact_id=identification.root_id,
             collection_id=collection.id
         )
         session.add(artifact_collection)
 
-def process_period(session: Session, period_data: dict) -> Period:
+def process_period(session, periods_data, identification):
     """Process period data"""
-    if not period_data or 'id' not in period_data:
-        return None
-        
-    existing = session.query(Period).filter_by(id=period_data['id']).first()
-    if existing is None:
-        period = Period(
-            id=period_data['id'],
-            sequence=period_data.get('sequence'),
-            period=period_data.get('period')
-        )
-        session.add(period)
-        return period
-    return existing
+    for per in periods_data:
+        per_data = per.get('period', {})
+        existing = session.query(Period).filter_by(id=per_data.get('id')).first()
 
-def process_provenience(session: Session, provenience_data: dict) -> Provenience:
+        if existing is None:
+            period = Period(
+                id=per_data.get('id'),
+                sequence=per_data.get('sequence'),
+                period=per_data.get('period')
+            )
+            session.add(period)
+        else:
+            period = existing
+
+        artifact_period = ArtifactPeriod(
+            artifact_id=identification.root_id,
+            period_id=period.id
+        )
+        session.add(artifact_period)
+
+def process_provenience(session, proveniences_data, identification):
     """Process provenience data"""
-    if not provenience_data or 'id' not in provenience_data:
-        return None
-        
-    existing = session.query(Provenience).filter_by(id=provenience_data['id']).first()
-    if existing is None:
-        provenience = Provenience(
-            id=provenience_data['id'],
-            provenience=provenience_data.get('provenience'),
-            location_id=provenience_data.get('location_id'),
-            place_id=provenience_data.get('place_id'),
-            region_id=provenience_data.get('region_id')
-        )
-        session.add(provenience)
-        return provenience
-    return existing
+    for prov in proveniences_data:
+        prov_data = prov.get('provenience', {})
+        existing = session.query(Provenience).filter_by(id=prov_data.get('id')).first()
 
-def get_or_create_language(session: Session, language_data: dict) -> Language:
-    """Get existing language or create new one"""
-    existing = session.query(Language).filter_by(id=language_data.get('id')).first()
-    if existing is None:
-        language = Language(
-            id=language_data.get('id'),
-            language=language_data.get('language')
-        )
-        session.add(language)
-        return language
-    return existing
+        if existing is None:
+            provenience = Provenience(
+                id=prov_data.get('id'),
+                provenience=prov_data.get('provenience'),
+                location_id=prov_data.get('location_id'),
+                place_id=prov_data.get('place_id'),
+                region_id=prov_data.get('region_id')
+            )
+            session.add(provenience)
+        else:
+            provenience = existing
 
-def get_or_create_genre(session: Session, genre_data: dict) -> Genre:
-    """Get existing genre or create new one"""
-    existing = session.query(Genre).filter_by(id=genre_data.get('id')).first()
-    if existing is None:
-        genre = Genre(
-            id=genre_data.get('id'),
-            genre=genre_data.get('genre')
+        artifact_provenience = ArtifactProvenience(
+            artifact_id=identification.root_id,
+            provenience_id=provenience.id
         )
-        session.add(genre)
-        return genre
-    return existing
-
-def get_or_create_external_resource(session: Session, resource_data: dict) -> ExternalResource:
-    """Get existing external resource or create new one"""
-    existing = session.query(ExternalResource).filter_by(id=resource_data.get('id')).first()
-    if existing is None:
-        resource = ExternalResource(
-            id=resource_data.get('id'),
-            external_resource=resource_data.get('external_resource'),
-            base_url=resource_data.get('base_url'),
-            project_url=resource_data.get('project_url'),
-            abbrev=resource_data.get('abbrev')
-        )
-        session.add(resource)
-        return resource
-    return existing
-
-def get_or_create_collection(session: Session, collection_data: dict) -> Collection:
-    """Get existing collection or create new one"""
-    existing = session.query(Collection).filter_by(id=collection_data.get('id')).first()
-    if existing is None:
-        collection = Collection(
-            id=collection_data.get('id'),
-            collection=collection_data.get('collection'),
-            collection_url=collection_data.get('collection_url')
-        )
-        session.add(collection)
-        return collection
-    return existing
-
-def get_or_create_publication(session: Session, publication_data: dict) -> Publication:
-    """Get existing publication or create new one"""
-    existing = session.query(Publication).filter_by(id=publication_data.get('id')).first()
-    if existing is None:
-        publication = Publication(
-            id=publication_data.get('id'),
-            designation=publication_data.get('designation'),
-            bibtexkey=publication_data.get('bibtexkey'),
-            year=publication_data.get('year'),
-            address=publication_data.get('address'),
-            number=publication_data.get('number'),
-            publisher=publication_data.get('publisher'),
-            title=publication_data.get('title'),
-            series=publication_data.get('series')
-        )
-        session.add(publication)
-        return publication
-    return existing
-
-def update_existing_inscription(existing: Inscription, inscription_data: dict):
-    """Update existing inscription with new data"""
-    raw_atf = inscription_data.get('atf', existing.raw_atf)
-    existing.raw_atf = raw_atf
-    existing.cleaned_transliteration = extract_cleaned_transliteration(raw_atf)
-    existing.existing_translation = extract_existing_translation(raw_atf)
-
-def get_or_create_period(session: Session, period_data: dict) -> Period:
-    """Get existing period or create new one"""
-    existing = session.query(Period).filter_by(id=period_data.get('id')).first()
-    if existing is None:
-        period = Period(
-            id=period_data.get('id'),
-            sequence=period_data.get('sequence'),
-            period=period_data.get('period')
-        )
-        session.add(period)
-        return period
-    return existing
-
-def get_or_create_provenience(session: Session, provenience_data: dict) -> Provenience:
-    """Get existing provenience or create new one"""
-    existing = session.query(Provenience).filter_by(id=provenience_data.get('id')).first()
-    if existing is None:
-        provenience = Provenience(
-            id=provenience_data.get('id'),
-            provenience=provenience_data.get('provenience'),
-            location_id=provenience_data.get('location_id'),
-            place_id=provenience_data.get('place_id'),
-            region_id=provenience_data.get('region_id')
-        )
-        session.add(provenience)
-        return provenience
-    return existing
+        session.add(artifact_provenience)
