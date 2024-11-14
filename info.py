@@ -1,5 +1,5 @@
-VERSION = "pre-release 1.3.0"
+VERSION = "pre-release 1.3.0.1"
 LICENSE = "MIT"
 AUTHOR = "Ilī-Yahu"
 CONTACT = "Ili-Yahu@pm.me"
-LATEST_UPDATE = "2024-11-06"
+LATEST_UPDATE = "2024-11-14"
