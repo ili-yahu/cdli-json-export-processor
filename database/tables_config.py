@@ -6,7 +6,7 @@ Base = declarative_base()
 
 # Identification Model (Artifact)
 class Identification(Base):
-    __tablename__ = 'identification'
+    __tablename__ = 'cdli_identification'
     
     root_id = Column(Integer, primary_key=True)  # Primary key
     composite_no = Column(String, nullable=True)  # Composite number
@@ -20,7 +20,7 @@ class Identification(Base):
     height = Column(Float, nullable=True)  # Height of artifact
     width = Column(Float, nullable=True)  # Width of artifact
 
-    # Relationships
+    # Relationships. Relationships are bewteen classes, not table names
     inscriptions = relationship("Inscription", back_populates="identification")
     publications = relationship("ArtifactPublication", back_populates="identification")
     materials = relationship("ArtifactMaterial", back_populates="identification")
@@ -33,10 +33,10 @@ class Identification(Base):
 
 # Inscription Model
 class Inscription(Base):
-    __tablename__ = 'inscription'
+    __tablename__ = 'cdli_inscription'
     
     inscription_id = Column(Integer, primary_key=True)  # Primary key for inscriptions
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'), nullable=False)  # Foreign key to identification
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'), nullable=False)  # Foreign key to identification
     raw_atf = Column(Text, nullable=True)  # Inscription text
     cleaned_transliteration = Column(Text, nullable=True)  # Cleaned transliteration of the inscription
     existing_translation = Column(Text, nullable=True)  # Existing translation of the inscription
@@ -49,7 +49,7 @@ class Inscription(Base):
 
 # Publication Model
 class Publication(Base):
-    __tablename__ = 'publications'
+    __tablename__ = 'cdli_publications'
 
     id = Column(Integer, primary_key=True)
     designation = Column(String, nullable=True)  # Designation of the publication
@@ -67,11 +67,11 @@ class Publication(Base):
 
 # Association table for artifact-publication relationship
 class ArtifactPublication(Base):
-    __tablename__ = 'artifact_publications'
+    __tablename__ = 'cdli_artifact_publications'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    publication_id = Column(Integer, ForeignKey('publications.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    publication_id = Column(Integer, ForeignKey('cdli_publications.id'))
     exact_reference = Column(String, nullable=True)
 
     # Relationships
@@ -81,7 +81,7 @@ class ArtifactPublication(Base):
 
 # Material Model
 class Material(Base):
-    __tablename__ = 'materials'
+    __tablename__ = 'cdli_materials'
 
     id = Column(Integer, primary_key=True)
     material = Column(String, nullable=False)  # Material type (e.g., clay, stone)
@@ -92,11 +92,11 @@ class Material(Base):
 
 # Association table for artifact-material relationship
 class ArtifactMaterial(Base):
-    __tablename__ = 'artifact_materials'
+    __tablename__ = 'cdli_artifact_materials'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    material_id = Column(Integer, ForeignKey('materials.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    material_id = Column(Integer, ForeignKey('cdli_materials.id'))
 
     # Relationships
     identification = relationship("Identification", back_populates="materials")
@@ -105,7 +105,7 @@ class ArtifactMaterial(Base):
 
 # Language Model
 class Language(Base):
-    __tablename__ = 'languages'
+    __tablename__ = 'cdli_languages'
 
     id = Column(Integer, primary_key=True)
     language = Column(String, nullable=False)  # Language type (e.g., Akkadian, Sumerian)
@@ -116,11 +116,11 @@ class Language(Base):
 
 # Association table for artifact-language relationship
 class ArtifactLanguage(Base):
-    __tablename__ = 'artifact_languages'
+    __tablename__ = 'cdli_artifact_languages'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    language_id = Column(Integer, ForeignKey('languages.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    language_id = Column(Integer, ForeignKey('cdli_languages.id'))
 
     # Relationships
     identification = relationship("Identification", back_populates="languages")
@@ -129,7 +129,7 @@ class ArtifactLanguage(Base):
 
 # Genre Model
 class Genre(Base):
-    __tablename__ = 'genres'
+    __tablename__ = 'cdli_genres'
 
     id = Column(Integer, primary_key=True)
     genre = Column(String, nullable=False)  # Genre type (e.g., Lexical)
@@ -140,11 +140,11 @@ class Genre(Base):
 
 # Association table for artifact-genre relationship
 class ArtifactGenre(Base):
-    __tablename__ = 'artifact_genres'
+    __tablename__ = 'cdli_artifact_genres'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    genre_id = Column(Integer, ForeignKey('genres.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    genre_id = Column(Integer, ForeignKey('cdli_genres.id'))
     comments = Column(Text, nullable=True)
 
     # Relationships
@@ -154,7 +154,7 @@ class ArtifactGenre(Base):
 
 # ExternalResource Model
 class ExternalResource(Base):
-    __tablename__ = 'external_resources'
+    __tablename__ = 'cdli_external_resources'
 
     id = Column(Integer, primary_key=True)
     external_resource = Column(String, nullable=False)  # External resource name
@@ -168,11 +168,11 @@ class ExternalResource(Base):
 
 # Association table for artifact-external_resource relationship
 class ArtifactExternalResource(Base):
-    __tablename__ = 'artifact_external_resources'
+    __tablename__ = 'cdli_artifact_external_resources'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    external_resource_id = Column(Integer, ForeignKey('external_resources.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    external_resource_id = Column(Integer, ForeignKey('cdli_external_resources.id'))
     external_resource_key = Column(String, nullable=True)
 
     # Relationships
@@ -182,7 +182,7 @@ class ArtifactExternalResource(Base):
 
 # Collection Model
 class Collection(Base):
-    __tablename__ = 'collections'
+    __tablename__ = 'cdli_collections'
 
     id = Column(Integer, primary_key=True)
     collection = Column(String, nullable=True)  # Collection name (e.g., museum name)
@@ -194,11 +194,11 @@ class Collection(Base):
 
 # Association table for artifact-collection relationship
 class ArtifactCollection(Base):
-    __tablename__ = 'artifact_collections'
+    __tablename__ = 'cdli_artifact_collections'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    collection_id = Column(Integer, ForeignKey('collections.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    collection_id = Column(Integer, ForeignKey('cdli_collections.id'))
 
     # Relationships
     identification = relationship("Identification", back_populates="collections")
@@ -206,7 +206,7 @@ class ArtifactCollection(Base):
 
 # Period Model
 class Period(Base):
-    __tablename__ = 'periods'
+    __tablename__ = 'cdli_periods'
 
     id = Column(Integer, primary_key=True)
     sequence = Column(Integer, nullable=True)
@@ -217,11 +217,11 @@ class Period(Base):
 
 # Association table for artifact-period relationship
 class ArtifactPeriod(Base):
-    __tablename__ = 'artifact_periods'
+    __tablename__ = 'cdli_artifact_periods'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    period_id = Column(Integer, ForeignKey('periods.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    period_id = Column(Integer, ForeignKey('cdli_periods.id'))
 
     # Relationships
     identification = relationship("Identification", back_populates="periods")
@@ -229,7 +229,7 @@ class ArtifactPeriod(Base):
 
 # Provenience Model
 class Provenience(Base):
-    __tablename__ = 'proveniences'
+    __tablename__ = 'cdli_proveniences'
 
     id = Column(Integer, primary_key=True)
     provenience = Column(String, nullable=True)  # Place name
@@ -242,11 +242,11 @@ class Provenience(Base):
 
 # Association table for artifact-provenience relationship
 class ArtifactProvenience(Base):
-    __tablename__ = 'artifact_proveniences'
+    __tablename__ = 'cdli_artifact_proveniences'
 
     id = Column(Integer, primary_key=True)
-    artifact_id = Column(Integer, ForeignKey('identification.root_id'))
-    provenience_id = Column(Integer, ForeignKey('proveniences.id'))
+    artifact_id = Column(Integer, ForeignKey('cdli_identification.root_id'))
+    provenience_id = Column(Integer, ForeignKey('cdli_proveniences.id'))
 
     # Relationships
     identification = relationship("Identification", back_populates="proveniences")
