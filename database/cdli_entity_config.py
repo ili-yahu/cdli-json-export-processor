@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Type, Optional, List, Dict
 from sqlalchemy.ext.declarative import DeclarativeMeta
 
-from database.tables_config import (
+from database.cdli_tables_config import (
     Publication, ArtifactPublication,
     Material, ArtifactMaterial,
     Language, ArtifactLanguage, 

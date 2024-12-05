@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, Listbox, Frame
 from utils.file_handler import select_and_clean_files, get_cleaned_data, check_database, file_handler
-from database.processor import send_to_database
+from database.cdli_processor import send_to_database
 
 def create_import_tab(notebook):
     """Create and return the import tab"""

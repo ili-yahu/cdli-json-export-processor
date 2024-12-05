@@ -4,17 +4,17 @@ import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
-from database.tables_config import Base, Identification, Inscription, Publication, ArtifactPublication
-from database.tables_config import Material, ArtifactMaterial, Language, ArtifactLanguage
-from database.tables_config import Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource
-from database.tables_config import Collection, ArtifactCollection
-from database.tables_config import Period, ArtifactPeriod
-from database.tables_config import Provenience, ArtifactProvenience
+from database.cdli_tables_config import Base, Identification, Inscription, Publication, ArtifactPublication
+from database.cdli_tables_config import Material, ArtifactMaterial, Language, ArtifactLanguage
+from database.cdli_tables_config import Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource
+from database.cdli_tables_config import Collection, ArtifactCollection
+from database.cdli_tables_config import Period, ArtifactPeriod
+from database.cdli_tables_config import Provenience, ArtifactProvenience
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
 from utils.logger import logger
 from ui.progress_tracker import ProgressTracker
 from typing import Dict, Type, Optional, List, Callable
-from database.entity_config import EntityConfig, ENTITY_CONFIGS
+from database.cdli_entity_config import EntityConfig, ENTITY_CONFIGS
 
 BATCH_SIZE = 100
 def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):

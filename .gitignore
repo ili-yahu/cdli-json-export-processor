@@ -1,4 +1,6 @@
 sample_json_files/
+sample_collections_csv/
+sample_sql/
 __pycache__/
 *.db
 *.db-journal
