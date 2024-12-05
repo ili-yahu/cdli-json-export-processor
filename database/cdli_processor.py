@@ -4,12 +4,12 @@ import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
-from database.cdli_tables_config import Base, Identification, Inscription, Publication, ArtifactPublication
-from database.cdli_tables_config import Material, ArtifactMaterial, Language, ArtifactLanguage
-from database.cdli_tables_config import Genre, ArtifactGenre, ExternalResource, ArtifactExternalResource
-from database.cdli_tables_config import Collection, ArtifactCollection
-from database.cdli_tables_config import Period, ArtifactPeriod
-from database.cdli_tables_config import Provenience, ArtifactProvenience
+from database.cdli_tables_config import Base, CDLIIdentification, CDLIInscription, CDLIPublication, CDLIArtifactPublication
+from database.cdli_tables_config import CDLIMaterial, CDLIArtifactMaterial, CDLILanguage, CDLIArtifactLanguage
+from database.cdli_tables_config import CDLIGenre, CDLIArtifactGenre, CDLIExternalResource, CDLIArtifactExternalResource
+from database.cdli_tables_config import CDLICollection, CDLIArtifactCollection
+from database.cdli_tables_config import CDLIPeriod, CDLIArtifactPeriod
+from database.cdli_tables_config import CDLIProvenience, CDLIArtifactProvenience
 from utils.text_cleaner import extract_cleaned_transliteration, extract_existing_translation
 from utils.logger import logger
 from ui.progress_tracker import ProgressTracker
@@ -84,7 +84,7 @@ def send_to_database(frame: tk.Frame, database_path: str, cleaned_data: list):
         logger.error(f"Stack trace:", exc_info=True)
         logger.error(f"Processed {processed_records} of {total_records} records")
 
-def generic_process_entity(session: Session, data: Dict, identification: Identification, config: EntityConfig) -> None:
+def generic_process_entity(session: Session, data: Dict, identification: CDLIIdentification, config: EntityConfig) -> None:
     entity_data = data.get(config.data_key, {})
     entity_id = entity_data.get('id')
     
@@ -110,7 +110,7 @@ def generic_process_entity(session: Session, data: Dict, identification: Identif
     relation = config.relation_class(**relation_data)
     session.add(relation)
 
-def process_record(session: Session, record: Dict) -> Optional[Identification]:
+def process_record(session: Session, record: Dict) -> Optional[CDLIIdentification]:
     """Process a single record"""
     if 'id' not in record:
         return None
@@ -133,20 +133,20 @@ def process_record(session: Session, record: Dict) -> Optional[Identification]:
     # Handle period and provenience separately since they're single objects
     if record.get('period'):
         generic_process_entity(session, {'period': record['period']}, identification,
-                             EntityConfig(Period, ArtifactPeriod, 'period'))
+                             EntityConfig(CDLIPeriod, CDLIArtifactPeriod, 'period'))
     
     if record.get('provenience'):
         generic_process_entity(session, {'provenience': record['provenience']}, identification,
-                             EntityConfig(Provenience, ArtifactProvenience, 'provenience'))
+                             EntityConfig(CDLIProvenience, CDLIArtifactProvenience, 'provenience'))
                     
     return identification
 
 def process_identification(session, record, root_id):
     """Process and return identification record"""
-    existing = session.query(Identification).filter_by(root_id=root_id).first()
+    existing = session.query(CDLIIdentification).filter_by(root_id=root_id).first()
     
     if existing is None:
-        identification = Identification(
+        identification = CDLIIdentification(
             root_id=root_id,
             composite_no=record.get('composite_no'),
             designation=record.get('designation'),
@@ -167,11 +167,11 @@ def process_inscription(session, inscription_data, identification):
     """Process inscription data"""
     if isinstance(inscription_data, dict):
         inscription_id = inscription_data.get('id')
-        existing = session.query(Inscription).filter_by(inscription_id=inscription_id).first()
+        existing = session.query(CDLIInscription).filter_by(inscription_id=inscription_id).first()
 
         raw_atf = inscription_data.get('atf')
         if existing is None:
-            inscription = Inscription(
+            inscription = CDLIInscription(
                 inscription_id=inscription_id,
                 artifact_id=identification.root_id,
                 raw_atf=raw_atf,
